@@ -16,9 +16,8 @@ import asyncio
 from datetime import date, datetime
 from typing import Optional, Callable
 from sqlalchemy.orm import Session
-import anthropic
 
-from config import settings
+from utils.llm import LLMClient
 from database.models import (
     BusinessProfile, Lender, Application, ActiveAccount,
     PaymentSchedule, CreditScoreHistory, ApplicationStatus
@@ -923,8 +922,7 @@ class CreditBrain:
     """
 
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-        self.model = "claude-sonnet-4-6"
+        self.client = LLMClient()
         self.qualifier = QualificationEngine()
         self.progression_engine = ProgressionEngine()
         self.payment_monitor = PaymentMonitor()
@@ -956,92 +954,71 @@ class CreditBrain:
         response_text = ""
         tool_calls_made = []
         authorization_required = None
-        authorized = False
 
-        # Agentic loop — Claude thinks and uses tools until done
+        # Agentic loop — LLM thinks and uses tools until done
         for iteration in range(10):  # max 10 tool-use rounds
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=4096,
+            llm_resp = self.client.complete_with_tools(
+                messages=messages,
                 system=BRAIN_SYSTEM_PROMPT,
                 tools=TOOLS,
-                messages=messages,
+                max_tokens=4096,
             )
 
-            # Collect text output
-            for block in response.content:
-                if hasattr(block, "text"):
-                    response_text = block.text
+            if llm_resp.text:
+                response_text = llm_resp.text
 
-            # Check stop reason
-            if response.stop_reason == "end_turn":
+            if llm_resp.stop_reason == "end_turn" or not llm_resp.tool_calls:
                 break
 
-            if response.stop_reason != "tool_use":
-                break
-
-            # Process tool calls
-            tool_uses = [b for b in response.content if b.type == "tool_use"]
-            if not tool_uses:
-                break
-
-            # Add assistant message with tool use blocks
-            messages.append({"role": "assistant", "content": response.content})
-
-            # Execute each tool
-            tool_results = []
-            for tool_use in tool_uses:
-                tool_name = tool_use.name
-                tool_input = tool_use.input
-                tool_calls_made.append({"tool": tool_name, "input": tool_input})
-
-                log.info(f"Brain using tool: {tool_name}")
+            # Execute each tool call
+            raw_results = []
+            auth_break = False
+            for tool_call in llm_resp.tool_calls:
+                tool_calls_made.append({"tool": tool_call.name, "input": tool_call.input})
+                log.info(f"Brain using tool: {tool_call.name}")
 
                 try:
-                    result = await self._execute_tool(tool_name, tool_input)
+                    result = await self._execute_tool(tool_call.name, tool_call.input)
 
-                    # Check if this is an authorization request
-                    if tool_name == "request_authorization":
+                    if tool_call.name == "request_authorization":
                         authorization_required = result
                         if result.get("status") == "PENDING":
-                            # Stop and wait for human authorization
-                            tool_results.append({
-                                "type": "tool_result",
-                                "tool_use_id": tool_use.id,
+                            raw_results.append({
+                                "tool_call_id": tool_call.id,
                                 "content": json.dumps(result),
                             })
-                            messages.append({"role": "user", "content": tool_results})
+                            next_msgs = self.client.build_next_messages(llm_resp, raw_results)
+                            messages.extend(next_msgs)
 
-                            # Get final response explaining what we're waiting for
-                            final_response = self.client.messages.create(
-                                model=self.model,
-                                max_tokens=1024,
-                                system=BRAIN_SYSTEM_PROMPT,
+                            # Final message explaining what we're waiting for
+                            final = self.client.complete_with_tools(
                                 messages=messages,
+                                system=BRAIN_SYSTEM_PROMPT,
+                                tools=TOOLS,
+                                max_tokens=1024,
                             )
-                            for block in final_response.content:
-                                if hasattr(block, "text"):
-                                    response_text = block.text
+                            if final.text:
+                                response_text = final.text
+                            auth_break = True
                             break
 
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": tool_use.id,
+                    raw_results.append({
+                        "tool_call_id": tool_call.id,
                         "content": json.dumps(result, default=str),
                     })
 
                 except Exception as e:
-                    log.error(f"Tool {tool_name} error: {e}")
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": tool_use.id,
+                    log.error(f"Tool {tool_call.name} error: {e}")
+                    raw_results.append({
+                        "tool_call_id": tool_call.id,
                         "content": json.dumps({"error": str(e)}),
                     })
 
-            if tool_results:
-                messages.append({"role": "user", "content": tool_results})
+            if not auth_break and raw_results:
+                next_msgs = self.client.build_next_messages(llm_resp, raw_results)
+                messages.extend(next_msgs)
 
-            if authorization_required and authorization_required.get("status") == "PENDING":
+            if auth_break:
                 break
 
         return {

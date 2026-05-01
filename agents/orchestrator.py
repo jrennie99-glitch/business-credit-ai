@@ -7,9 +7,8 @@ import json
 import asyncio
 from datetime import datetime, timezone
 from typing import Any
-import anthropic
 
-from config import settings
+from utils.llm import LLMClient
 from database.models import BusinessProfile, Lender, Application, ApplicationStatus
 from database.db import get_db_context
 from utils.logger import log
@@ -39,17 +38,10 @@ Respond in JSON format when asked for structured data."""
 
 class CreditOrchestrator:
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-        self.model = "claude-sonnet-4-6"
+        self.client = LLMClient()
 
     def _chat(self, messages: list[dict], system: str = SYSTEM_PROMPT) -> str:
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=4096,
-            system=system,
-            messages=messages,
-        )
-        return response.content[0].text
+        return self.client.chat(messages=messages, system=system, max_tokens=4096)
 
     def score_lender_eligibility(
         self, business: BusinessProfile, lender_data: dict

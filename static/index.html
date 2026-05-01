@@ -147,7 +147,7 @@ tr:hover td{background:var(--s2)}
 
 <div class="main">
   <div class="topbar">
-    <h2 id="page-title">Dashboard</h2>
+    <h2 id="topbar-title">Dashboard</h2>
     <div class="topbar-right">
       <select id="biz-sel" onchange="onBizSelect()" style="background:var(--s2);border:1px solid var(--border);color:var(--text);padding:7px 11px;border-radius:7px;font-size:12px;outline:none;max-width:200px">
         <option value="">Select Business...</option>
@@ -187,7 +187,7 @@ tr:hover td{background:var(--s2)}
 </div>
 
 <!-- CREDIT HEALTH -->
-<div id="page-credit">
+<div id="page-credit" style="display:none">
   <div class="section-header">
     <h3>Credit Health Report</h3>
     <div style="display:flex;gap:8px">
@@ -199,13 +199,13 @@ tr:hover td{background:var(--s2)}
 </div>
 
 <!-- PROGRESSION -->
-<div id="page-progression">
+<div id="page-progression" style="display:none">
   <div class="section-header"><h3>Credit Tier Progression</h3><button class="btn btn-sm btn-outline" onclick="loadProgression()">🔄 Refresh</button></div>
   <div id="prog-content"><div style="text-align:center;padding:40px;color:var(--muted)">Select a business to view progression</div></div>
 </div>
 
 <!-- BUSINESS PROFILE -->
-<div id="page-business">
+<div id="page-business" style="display:none">
   <div class="card">
     <div class="card-title">Legal & Entity Information</div>
     <div class="form-grid">
@@ -278,7 +278,7 @@ tr:hover td{background:var(--s2)}
 </div>
 
 <!-- ACTIVE ACCOUNTS -->
-<div id="page-accounts">
+<div id="page-accounts" style="display:none">
   <div class="section-header"><h3>Active Credit Accounts</h3><button class="btn btn-sm btn-outline" onclick="loadAccounts()">🔄 Refresh</button></div>
   <div class="card" style="padding:0;overflow:hidden">
     <table><thead><tr><th>Account</th><th>Type</th><th>Limit</th><th>Balance</th><th>Utilization</th><th>On-Time</th><th>Reports To</th><th>Next Due</th><th>Actions</th></tr></thead>
@@ -287,7 +287,7 @@ tr:hover td{background:var(--s2)}
 </div>
 
 <!-- PAYMENTS -->
-<div id="page-payments">
+<div id="page-payments" style="display:none">
   <div class="section-header">
     <h3>Payment Calendar</h3>
     <div style="display:flex;gap:8px">
@@ -303,7 +303,7 @@ tr:hover td{background:var(--s2)}
 </div>
 
 <!-- QUALIFY LENDERS -->
-<div id="page-qualify">
+<div id="page-qualify" style="display:none">
   <div class="god-banner" style="margin-bottom:20px">
     <span class="icon">🧠</span>
     <div>
@@ -368,7 +368,7 @@ tr:hover td{background:var(--s2)}
 </div>
 
 <!-- LENDER DATABASE -->
-<div id="page-lenders">
+<div id="page-lenders" style="display:none">
   <div class="section-header">
     <h3 id="lender-count">All Lenders</h3>
     <div style="display:flex;gap:8px">
@@ -393,7 +393,7 @@ tr:hover td{background:var(--s2)}
 </div>
 
 <!-- APPLICATIONS -->
-<div id="page-applications">
+<div id="page-applications" style="display:none">
   <div class="section-header"><h3>Application Tracker</h3><button class="btn btn-sm btn-outline" onclick="loadApplications()">🔄 Refresh</button></div>
   <div class="card" style="padding:0;overflow:hidden">
     <table><thead><tr><th>Lender</th><th>Tier</th><th>Status</th><th>Qual Score</th><th>Reference</th><th>Notes</th><th>Submitted</th></tr></thead>
@@ -402,7 +402,7 @@ tr:hover td{background:var(--s2)}
 </div>
 
 <!-- BRAIN -->
-<div id="page-brain">
+<div id="page-brain" style="display:none">
   <div class="god-banner">
     <span class="icon">🧠</span>
     <div>
@@ -433,7 +433,7 @@ I'll think through your situation, qualify every lender, and present a full acti
 </div>
 
 <!-- AI ADVISOR (regular chat) -->
-<div id="page-advisor">
+<div id="page-advisor" style="display:none">
   <div class="chat-wrap">
     <div class="chat-msgs" id="advisor-msgs">
       <div class="msg ai">👋 I'm your Business Credit Advisor. Ask me anything about business credit, lender requirements, approval strategies, or how to build from zero.
@@ -452,470 +452,551 @@ Select your business above for personalized advice based on your actual profile.
 </div><!-- /layout -->
 
 <script>
-const API = '';
+// ── State ────────────────────────────────────────────────────────────────────
 let currentBiz = null;
+let currentPage = 'dashboard';
 let allLenders = [];
-let qualData = null;
 let brainSession = null;
 let advisorHistory = [];
 
+// ── API helper ───────────────────────────────────────────────────────────────
 async function api(path, opts={}) {
-  const r = await fetch(API+path,{headers:{'Content-Type':'application/json'},...opts});
-  if(!r.ok){const e=await r.json().catch(()=>({detail:r.statusText}));throw new Error(e.detail||r.statusText);}
-  return r.json();
+  try {
+    const r = await fetch(path, {headers:{'Content-Type':'application/json'}, ...opts});
+    if (!r.ok) {
+      const e = await r.json().catch(()=>({detail: r.statusText}));
+      throw new Error(e.detail || r.statusText);
+    }
+    return r.json();
+  } catch(e) {
+    if (e instanceof TypeError) throw new Error('Server not reachable');
+    throw e;
+  }
 }
+
+// ── Navigation ───────────────────────────────────────────────────────────────
+const PAGES = ['dashboard','credit','progression','business','accounts','payments','qualify','lenders','applications','brain','advisor'];
+const TITLES = {dashboard:'Dashboard',credit:'Credit Health',progression:'Progression',business:'Business Profile',accounts:'Active Accounts',payments:'Payment Calendar',qualify:'Qualify Lenders',lenders:'Lender Database',applications:'Applications',brain:'Credit Brain',advisor:'AI Advisor'};
 
 function nav(name) {
-  document.querySelectorAll('[id^=page-]').forEach(el=>el.style.display='none');
-  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
-  document.getElementById('page-'+name).style.display='block';
-  document.getElementById('nav-'+name)?.classList.add('active');
-  const titles={dashboard:'Dashboard',credit:'Credit Health',progression:'Progression',business:'Business Profile',accounts:'Active Accounts',payments:'Payment Calendar',qualify:'Qualify Lenders',lenders:'Lender Database',applications:'Applications',brain:'Credit Brain',advisor:'AI Advisor'};
-  document.getElementById('page-title').textContent=titles[name]||name;
-  if(name==='dashboard')loadDashboard();
-  if(name==='lenders')loadLenders();
-  if(name==='applications')loadApplications();
-  if(name==='credit')loadCredit();
-  if(name==='progression')loadProgression();
-  if(name==='accounts')loadAccounts();
-  if(name==='payments')loadPayments();
+  PAGES.forEach(p => {
+    const el = document.getElementById('page-'+p);
+    if (el) el.style.display = p===name ? 'block' : 'none';
+    const n = document.getElementById('nav-'+p);
+    if (n) n.classList.toggle('active', p===name);
+  });
+  document.getElementById('topbar-title').textContent = TITLES[name] || name;
+  currentPage = name;
+  if (name==='dashboard') loadDashboard();
+  else if (name==='lenders') loadLenders();
+  else if (name==='applications') loadApplications();
+  else if (name==='credit') loadCredit();
+  else if (name==='progression') loadProgression();
+  else if (name==='accounts') loadAccounts();
+  else if (name==='payments') loadPayments();
+  else if (name==='business') loadBusinessForm();
 }
 
-async function loadBizList(){
-  try{
-    const bizs=await api('/api/business');
-    const sel=document.getElementById('biz-sel');
-    sel.innerHTML='<option value="">Select Business...</option>';
-    bizs.forEach(b=>{const o=document.createElement('option');o.value=b.id;o.textContent=b.legal_name+(b.current_tier?' ('+b.current_tier+')':'');sel.appendChild(o);});
-    if(bizs.length>0){sel.value=bizs[0].id;onBizSelect();}
-  }catch(e){console.error(e);}
+// ── Business selector ────────────────────────────────────────────────────────
+async function loadBizList() {
+  try {
+    const bizs = await api('/api/business');
+    const sel = document.getElementById('biz-sel');
+    sel.innerHTML = '<option value="">Select Business...</option>';
+    bizs.forEach(b => {
+      const o = document.createElement('option');
+      o.value = b.id;
+      o.textContent = b.legal_name;
+      sel.appendChild(o);
+    });
+    if (bizs.length > 0) {
+      sel.value = bizs[0].id;
+      currentBiz = parseInt(bizs[0].id);
+    }
+  } catch(e) { console.error('loadBizList:', e); }
 }
 
-function onBizSelect(){
-  currentBiz=document.getElementById('biz-sel').value?parseInt(document.getElementById('biz-sel').value):null;
-  const p=document.querySelector('[id^=page-][style*="block"]')?.id?.replace('page-','');
-  if(p&&['dashboard','credit','progression','qualify','applications','accounts','payments'].includes(p)){nav(p);}
+function onBizSelect() {
+  const v = document.getElementById('biz-sel').value;
+  currentBiz = v ? parseInt(v) : null;
+  nav(currentPage);
 }
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
-async function loadDashboard(){
-  try{
-    const url=currentBiz?`/api/stats?business_id=${currentBiz}`:'/api/stats';
-    const s=await api(url);
-    document.getElementById('s-lenders').textContent=s.total_lenders;
-    document.getElementById('s-apps').textContent=s.total_applications;
-    document.getElementById('s-accounts').textContent=s.active_accounts;
-    document.getElementById('s-credit').textContent='$'+(s.total_credit_available>=1e6?(s.total_credit_available/1e6).toFixed(1)+'M':s.total_credit_available>=1e3?(s.total_credit_available/1e3).toFixed(0)+'K':s.total_credit_available.toFixed(0));
-    document.getElementById('s-overdue').textContent=s.overdue_payments;
-    document.getElementById('s-util').textContent=s.overall_utilization+'%';
-    const apps=await api('/api/applications'+(currentBiz?`?business_id=${currentBiz}`:''));
-    const tb=document.getElementById('recent-apps');
-    tb.innerHTML=apps.slice(0,15).map(a=>`<tr>
-      <td><strong>${a.lender_name}</strong></td>
-      <td><span class="badge b-${a.lender_tier}">${a.lender_tier||'?'}</span></td>
-      <td><span class="badge b-${(a.status||'').replace('ApplicationStatus.','')}">${(a.status||'').replace('ApplicationStatus.','')}</span></td>
-      <td style="font-size:11px">${a.qualification_score?a.qualification_score.toFixed(0)+'%':''}</td>
-      <td style="color:var(--muted);font-size:11px">${a.reference_number||'—'}</td>
-      <td style="color:var(--muted);font-size:11px">${a.submitted_at?new Date(a.submitted_at).toLocaleDateString():'—'}</td>
-    </tr>`).join('')||'<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted)">No applications yet — run a campaign to begin</td></tr>';
+async function loadDashboard() {
+  try {
+    const url = currentBiz ? `/api/stats?business_id=${currentBiz}` : '/api/stats';
+    const s = await api(url);
+    document.getElementById('s-lenders').textContent = s.total_lenders;
+    document.getElementById('s-apps').textContent = s.total_applications;
+    document.getElementById('s-accounts').textContent = s.active_accounts;
+    const c = s.total_credit_available;
+    document.getElementById('s-credit').textContent = '$'+(c>=1e6?(c/1e6).toFixed(1)+'M':c>=1e3?(c/1e3).toFixed(0)+'K':c);
+    document.getElementById('s-overdue').textContent = s.overdue_payments;
+    document.getElementById('s-util').textContent = s.overall_utilization+'%';
+  } catch(e) { console.error('stats:', e); }
 
-    // Payment alerts
-    if(currentBiz){
-      const psummary=await api(`/api/payments/summary/${currentBiz}`);
-      if(psummary.overdue_count>0||psummary.due_soon_count>0){
-        document.getElementById('payment-alert-card').style.display='block';
-        document.getElementById('payment-alerts').innerHTML=`
-          ${psummary.overdue_count>0?`<div class="alert alert-err">🚨 ${psummary.overdue_count} OVERDUE payment(s) — $${psummary.overdue_amount.toFixed(2)} total. Pay NOW to protect your credit scores.</div>`:''}
-          ${psummary.due_soon_count>0?`<div class="alert alert-warn">⚠️ ${psummary.due_soon_count} payment(s) due soon. <button class="btn btn-sm btn-outline" onclick="nav('payments')">View Payments →</button></div>`:''}
-        `;
-      }
+  try {
+    const apps = await api('/api/applications'+(currentBiz?`?business_id=${currentBiz}`:''));
+    const tb = document.getElementById('recent-apps');
+    if (apps.length === 0) {
+      tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted)">No applications yet — go to <strong>Qualify Lenders</strong> to start building credit</td></tr>';
+    } else {
+      tb.innerHTML = apps.slice(0,15).map(a => {
+        const status = (a.status||'').replace('ApplicationStatus.','');
+        return `<tr>
+          <td><strong>${a.lender_name}</strong></td>
+          <td><span class="badge b-${a.lender_tier||'starter'}">${a.lender_tier||'?'}</span></td>
+          <td><span class="badge b-${status}">${status}</span></td>
+          <td style="font-size:11px">${a.qualification_score?Math.round(a.qualification_score)+'%':''}</td>
+          <td style="color:var(--muted);font-size:11px">${a.reference_number||'—'}</td>
+          <td style="color:var(--muted);font-size:11px">${a.submitted_at?new Date(a.submitted_at).toLocaleDateString():'—'}</td>
+        </tr>`;
+      }).join('');
     }
-  }catch(e){console.error(e);}
+  } catch(e) { console.error('apps:', e); }
+
+  if (currentBiz) {
+    try {
+      const ps = await api(`/api/payments/summary/${currentBiz}`);
+      const card = document.getElementById('payment-alert-card');
+      if (ps.overdue_count > 0 || ps.due_soon_count > 0) {
+        card.style.display = 'block';
+        document.getElementById('payment-alerts').innerHTML =
+          (ps.overdue_count>0?`<div class="alert alert-err">🚨 ${ps.overdue_count} OVERDUE payment(s) — Pay NOW to protect your scores.</div>`:'') +
+          (ps.due_soon_count>0?`<div class="alert alert-warn">⚠️ ${ps.due_soon_count} payment(s) due soon. <button class="btn btn-sm btn-outline" onclick="nav('payments')">View →</button></div>`:'');
+      } else { card.style.display = 'none'; }
+    } catch(e) {}
+  }
 }
 
 // ── Credit Health ─────────────────────────────────────────────────────────────
-async function loadCredit(){
-  if(!currentBiz){document.getElementById('credit-content').innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)">Select a business first</div>';return;}
-  document.getElementById('credit-content').innerHTML='<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
-  try{
-    const r=await api(`/api/credit/report/${currentBiz}`);
-    document.getElementById('credit-content').innerHTML=renderCreditReport(r);
-  }catch(e){document.getElementById('credit-content').innerHTML=`<div class="alert alert-err">${e.message}</div>`;}
+async function loadCredit() {
+  const el = document.getElementById('credit-content');
+  if (!currentBiz) { el.innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)">Select a business above first</div>'; return; }
+  el.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div> Loading...</div>';
+  try {
+    const r = await api(`/api/credit/report/${currentBiz}`);
+    const sc = v => !v?'var(--muted)':v>=75?'var(--green)':v>=50?'var(--gold)':'var(--red)';
+    el.innerHTML = `
+      <div class="stats-grid">
+        <div class="stat"><div class="stat-val" style="color:${sc(r.scores?.dnb_paydex?.value)}">${r.scores?.dnb_paydex?.value||'—'}</div><div class="stat-label">D&B PAYDEX</div></div>
+        <div class="stat"><div class="stat-val" style="color:${sc(r.scores?.experian_intelliscore?.value)}">${r.scores?.experian_intelliscore?.value||'—'}</div><div class="stat-label">Experian Intelliscore</div></div>
+        <div class="stat"><div class="stat-val" style="color:${sc(r.scores?.equifax_business?.value)}">${r.scores?.equifax_business?.value||'—'}</div><div class="stat-label">Equifax Business</div></div>
+        <div class="stat"><div class="stat-val" style="color:${r.scores?.personal?.value>=700?'var(--green)':r.scores?.personal?.value>=620?'var(--gold)':'var(--red)'}">${r.scores?.personal?.value||'—'}</div><div class="stat-label">Personal Credit</div></div>
+        <div class="stat green"><div class="stat-val">${r.accounts?.active||0}</div><div class="stat-label">Active Accounts</div></div>
+        <div class="stat gold"><div class="stat-val">$${(r.accounts?.total_credit_limit||0).toLocaleString()}</div><div class="stat-label">Total Credit</div></div>
+        <div class="stat"><div class="stat-val" style="color:${(r.accounts?.utilization_pct||0)<15?'var(--green)':(r.accounts?.utilization_pct||0)<30?'var(--gold)':'var(--red)'}">${r.accounts?.utilization_pct||0}%</div><div class="stat-label">Utilization</div></div>
+        <div class="stat"><div class="stat-val" style="color:var(--green)">${r.payments?.on_time_rate||100}%</div><div class="stat-label">On-Time Rate</div></div>
+      </div>
+      <div class="card"><div class="card-title">Bureau Coverage</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:center">
+          <div style="padding:14px;background:var(--s2);border-radius:8px"><div style="font-size:22px;color:#42a5f5;font-weight:700">${r.bureau_coverage?.dnb||0}</div><div style="font-size:11px;color:var(--muted)">D&B Reporters</div></div>
+          <div style="padding:14px;background:var(--s2);border-radius:8px"><div style="font-size:22px;color:#4caf50;font-weight:700">${r.bureau_coverage?.experian||0}</div><div style="font-size:11px;color:var(--muted)">Experian Reporters</div></div>
+          <div style="padding:14px;background:var(--s2);border-radius:8px"><div style="font-size:22px;color:#ff7043;font-weight:700">${r.bureau_coverage?.equifax||0}</div><div style="font-size:11px;color:var(--muted)">Equifax Reporters</div></div>
+        </div>
+      </div>
+      <div class="card"><div class="card-title">Recommendations</div>
+        ${(r.recommendations||['Update your business profile with real scores from Nav, D&B, and Experian to get personalized recommendations.']).map(rec=>`<div style="padding:8px 0;font-size:13px;border-bottom:1px solid var(--border)">${rec}</div>`).join('')}
+      </div>`;
+  } catch(e) { el.innerHTML=`<div class="alert alert-err">Error: ${e.message}</div>`; }
 }
 
-function renderCreditReport(r){
-  const scoreBar=(val,max,color)=>`<div class="score-ring"><div class="score-val" style="color:${color}">${val||'—'}</div><div class="score-bar"><div class="score-fill" style="width:${val?Math.round(val/max*100):0}%;background:${color}"></div></div><span style="font-size:11px;color:var(--muted)">${val?Math.round(val/max*100)+'%':'N/A'}</span></div>`;
-  const scoreColor=(v,low,mid)=>!v?'var(--muted)':v>=mid?'var(--green)':v>=low?'var(--gold)':'var(--red)';
-  return `
-  <div class="stats-grid">
-    <div class="stat"><div class="stat-val" style="color:${scoreColor(r.scores.dnb_paydex?.value,50,75)}">${r.scores.dnb_paydex?.value||'—'}</div><div class="stat-label">D&B PAYDEX (target: 80+)</div></div>
-    <div class="stat"><div class="stat-val" style="color:${scoreColor(r.scores.experian_intelliscore?.value,50,70)}">${r.scores.experian_intelliscore?.value||'—'}</div><div class="stat-label">Experian Intelliscore</div></div>
-    <div class="stat"><div class="stat-val" style="color:${scoreColor(r.scores.equifax_business?.value,50,70)}">${r.scores.equifax_business?.value||'—'}</div><div class="stat-label">Equifax Business</div></div>
-    <div class="stat"><div class="stat-val" style="color:${scoreColor(r.scores.personal?.value,620,700)}">${r.scores.personal?.value||'—'}</div><div class="stat-label">Personal Credit</div></div>
-    <div class="stat green"><div class="stat-val">${r.accounts.active}</div><div class="stat-label">Active Accounts</div></div>
-    <div class="stat gold"><div class="stat-val">$${(r.accounts.total_credit_limit||0).toLocaleString()}</div><div class="stat-label">Total Credit Limit</div></div>
-    <div class="stat"><div class="stat-val" style="color:${r.accounts.utilization_pct<15?'var(--green)':r.accounts.utilization_pct<30?'var(--gold)':'var(--red)'}">${r.accounts.utilization_pct||0}%</div><div class="stat-label">Utilization</div></div>
-    <div class="stat"><div class="stat-val" style="color:${r.payments.on_time_rate===100?'var(--green)':'var(--red)'}">${r.payments.on_time_rate||100}%</div><div class="stat-label">On-Time Payments</div></div>
-  </div>
-  <div class="card"><div class="card-title">Bureau Coverage (accounts reporting)</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
-      <div style="text-align:center;padding:14px;background:var(--s2);border-radius:8px"><div style="font-size:22px;color:#42a5f5;font-weight:700">${r.bureau_coverage.dnb}</div><div style="font-size:11px;color:var(--muted)">D&B Reporters</div></div>
-      <div style="text-align:center;padding:14px;background:var(--s2);border-radius:8px"><div style="font-size:22px;color:#4caf50;font-weight:700">${r.bureau_coverage.experian}</div><div style="font-size:11px;color:var(--muted)">Experian Reporters</div></div>
-      <div style="text-align:center;padding:14px;background:var(--s2);border-radius:8px"><div style="font-size:22px;color:#ff7043;font-weight:700">${r.bureau_coverage.equifax}</div><div style="font-size:11px;color:var(--muted)">Equifax Reporters</div></div>
-    </div>
-  </div>
-  <div class="card"><div class="card-title">📋 Recommendations</div>
-    ${(r.recommendations||[]).map(rec=>`<div style="padding:8px;font-size:13px;border-bottom:1px solid var(--border)">${rec}</div>`).join('')}
-  </div>`;
+// ── Progression ───────────────────────────────────────────────────────────────
+async function loadProgression() {
+  const el = document.getElementById('prog-content');
+  if (!currentBiz) { el.innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)">Select a business above first</div>'; return; }
+  try {
+    const r = await api(`/api/progression/${currentBiz}`);
+    const tiers = ['foundation','starter','builder','established','advanced','premium'];
+    const cur = String(r.current_tier||'').toLowerCase().replace('credittier.','');
+    const ci = tiers.indexOf(cur);
+    el.innerHTML = `
+      <div class="progress-track">
+        ${tiers.map((t,i)=>`<div class="tier-step ${i<ci?'complete':i===ci?'active':'locked'}">
+          <div class="t-name">${i<ci?'✓ ':i===ci?'▶ ':''}${t[0].toUpperCase()+t.slice(1)}</div>
+          <div class="t-desc">${['EIN+Bank','Net-30s','Soft Cards','Biz Cards','LOC','SBA'][i]}</div>
+        </div>`).join('')}
+      </div>
+      <div class="card"><div class="card-title">Current Tier: ${r.tier_label||cur}</div>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:14px">${r.tier_description||''}</p>
+        ${(r.checklist||[]).map(c=>`<div class="checklist-item ${c.passed?'pass':'fail'}">${c.passed?'✅':'⭕'} ${c.item}</div>`).join('')}
+      </div>
+      ${(r.gaps||[]).length?`<div class="card"><div class="card-title">To Advance to ${r.next_tier||'next tier'}</div>
+        ${r.gaps.map(g=>`<div style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px"><strong>${g.requirement}</strong> — ${g.current}</div>`).join('')}
+      </div>`:''}
+      ${r.advanced_to?`<div class="alert alert-ok">🎉 Advanced to ${r.advanced_to}!</div>`:''}`;
+  } catch(e) { el.innerHTML=`<div class="alert alert-err">Error: ${e.message}</div>`; }
 }
 
-// ── Progression ────────────────────────────────────────────────────────────────
-async function loadProgression(){
-  if(!currentBiz){document.getElementById('prog-content').innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)">Select a business first</div>';return;}
-  try{
-    const r=await api(`/api/progression/${currentBiz}`);
-    document.getElementById('prog-content').innerHTML=renderProgression(r);
-  }catch(e){document.getElementById('prog-content').innerHTML=`<div class="alert alert-err">${e.message}</div>`;}
-}
-
-function renderProgression(r){
-  const tiers=['foundation','starter','builder','established','advanced','premium'];
-  const current=String(r.current_tier).toLowerCase().replace('credittier.','');
-  const ci=tiers.indexOf(current);
-  return `
-  <div class="progress-track">
-    ${tiers.map((t,i)=>`<div class="tier-step ${i<ci?'complete':i===ci?'active':'locked'}">
-      <div class="t-name">${i<ci?'✓ ':i===ci?'▶ ':''}${t.charAt(0).toUpperCase()+t.slice(1)}</div>
-      <div class="t-desc">${['EIN+Bank','Net-30','Soft Cards','Biz Cards','LOC/Loans','SBA'][i]}</div>
-    </div>`).join('')}
-  </div>
-  <div class="card"><div class="card-title">Current: ${r.tier_label||current}</div>
-    <p style="color:var(--muted);font-size:13px;margin-bottom:14px">${r.tier_description||''}</p>
-    <div>${(r.checklist||[]).map(c=>`<div class="checklist-item ${c.passed?'pass':'fail'}">${c.passed?'✅':'⭕'} <span>${c.item}</span></div>`).join('')}</div>
-  </div>
-  ${r.gaps&&r.gaps.length>0?`<div class="card"><div class="card-title">⭕ To Advance to ${r.next_tier||'next tier'}</div>
-    ${r.gaps.map(g=>`<div style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px"><strong>${g.requirement}</strong> — ${g.current}</div>`).join('')}
-  </div>`:''}
-  ${r.advanced_to?`<div class="alert alert-ok">🎉 Advanced to ${r.advanced_to}! New lenders unlocked: ${(r.newly_unlocked_lenders||[]).join(', ')}</div>`:''}`;
-}
-
-// ── Qualify & Campaign ─────────────────────────────────────────────────────────
-async function runQualify(){
-  if(!currentBiz)return alert('Select a business first');
-  document.getElementById('qual-results').style.display='block';
-  document.getElementById('qual-qualified-content').innerHTML='<div style="text-align:center;padding:24px"><div class="spinner"></div> Scoring all lenders against your profile...</div>';
-  try{
-    const r=await api(`/api/lenders/qualify/${currentBiz}`);
-    qualData=r;
-    document.getElementById('qcount-qualified').textContent=r.qualified.length;
-    document.getElementById('qcount-conditional').textContent=r.conditional.length;
-    document.getElementById('qcount-disqualified').textContent=r.disqualified.length;
-    renderQualTable('qualified',r.qualified);
-    renderQualTable('conditional',r.conditional);
-    renderQualTable('disqualified',r.disqualified);
-    showQualTab('qualified');
-  }catch(e){document.getElementById('qual-qualified-content').innerHTML=`<div class="alert alert-err">${e.message}</div>`;}
-}
-
-function renderQualTable(type,items){
-  const el=document.getElementById(`qual-${type}-content`);
-  if(type==='disqualified'){
-    el.innerHTML=`<table><thead><tr><th>Lender</th><th>Category</th><th>Tier</th><th>Why Disqualified</th><th>Re-Qualify In</th></tr></thead><tbody>
-    ${items.map(i=>`<tr>
-      <td><strong>${i.lender.name}</strong></td>
-      <td style="color:var(--muted);font-size:11px">${i.lender.category}</td>
-      <td><span class="badge b-${i.lender.tier}">${i.lender.tier}</span></td>
-      <td style="font-size:11px;color:var(--red)">${(i.hard_fails||[]).join('; ')}</td>
-      <td style="font-size:11px;color:var(--muted)">${i.requalify_months===0?'Immediately':i.requalify_months+'mo'}</td>
-    </tr>`).join('')}
-    </tbody></table>`;
-    return;
-  }
-  el.innerHTML=`<table><thead><tr><th>Lender</th><th>Tier</th><th>Score</th><th>Max Credit</th><th>Pull</th><th>Reports</th><th>Positives</th>${type==='qualified'?'<th>Action</th>':''}</tr></thead><tbody>
-  ${items.map(i=>`<tr>
-    <td><strong>${i.lender.name}</strong><div style="font-size:10px;color:var(--muted)">${i.lender.product_type||''}</div></td>
-    <td><span class="badge b-${i.lender.tier}">${i.lender.tier}</span></td>
-    <td><div class="prob-bar"><div class="prob-text" style="color:${i.qual_score>=70?'var(--green)':i.qual_score>=50?'var(--gold)':'var(--red)'}">${i.qual_score}%</div><div class="prog-bar"><div class="prog-fill" style="width:${i.qual_score}%;background:${i.qual_score>=70?'var(--green)':i.qual_score>=50?'var(--gold)':'var(--red)'}"></div></div></div></td>
-    <td style="font-size:11px">$${i.lender.credit_limit_max>=1e6?(i.lender.credit_limit_max/1e6).toFixed(1)+'M':i.lender.credit_limit_max>=1e3?(i.lender.credit_limit_max/1e3).toFixed(0)+'K':i.lender.credit_limit_max||'?'}</td>
-    <td>${i.lender.hard_pull?'<span class="pull-hard">Hard Pull</span>':'<span class="pull-soft">Soft/None</span>'}</td>
-    <td><span class="bureau-dots">${i.lender.reports_to_dnb?'<span class="dnb">D&B</span>':''}${i.lender.reports_to_experian_biz?'<span class="exp">Exp</span>':''}${i.lender.reports_to_equifax_biz?'<span class="eq">EQ</span>':''}</span></td>
-    <td style="font-size:10px;color:var(--muted)">${(i.passes||[]).slice(0,2).join(' · ')}</td>
-    ${type==='qualified'?`<td><button class="btn btn-sm btn-outline" onclick="applySingle(${i.lender.id},'${i.lender.name}')">Apply →</button></td>`:''}
-  </tr>`).join('')}
-  </tbody></table>`;
-}
-
-function showQualTab(tab){
-  ['qualified','conditional','disqualified'].forEach(t=>{
-    document.getElementById(`qual-${t}-content`).style.display=t===tab?'block':'none';
-    document.getElementById(`qtab-${t}`).classList.toggle('active',t===tab);
-  });
-}
-
-async function launchCampaign(){
-  if(!currentBiz)return alert('Select a business first');
-  const mode=document.getElementById('camp-mode').value;
-  if(mode==='false'&&!confirm('⚠️ LIVE MODE: This will actually submit applications to lenders. Confirm?'))return;
-  const btn=document.getElementById('launch-btn');
-  btn.disabled=true;btn.textContent='⏳ Launching...';
-  document.getElementById('campaign-status').style.display='block';
-  document.getElementById('campaign-body').innerHTML='<div class="spinner"></div> Campaign running...';
-  try{
-    const r=await api('/api/campaign/start',{method:'POST',body:JSON.stringify({
-      business_id:currentBiz,
-      max_applications:parseInt(document.getElementById('camp-max').value)||null,
-      dry_run:mode==='true',
-      include_conditional:document.getElementById('camp-conditional').value==='true',
-      categories:document.getElementById('camp-cat').value?[document.getElementById('camp-cat').value]:null,
-      tier_filter:document.getElementById('camp-tier').value||null,
-    })});
-    pollCampaign(r.task_id,btn);
-  }catch(e){
-    document.getElementById('campaign-body').innerHTML=`<div class="alert alert-err">${e.message}</div>`;
-    btn.disabled=false;btn.textContent='⚡ Launch Campaign';
-  }
-}
-
-async function pollCampaign(id,btn){
-  const iv=setInterval(async()=>{
-    try{
-      const s=await api(`/api/campaign/status/${id}`);
-      if(s.status==='complete'){
-        clearInterval(iv);btn.disabled=false;btn.textContent='⚡ Launch Campaign';
-        const r=s.results;
-        document.getElementById('campaign-body').innerHTML=`
-          <div class="alert alert-ok">✅ Campaign Complete!</div>
-          <div class="stats-grid">
-            <div class="stat"><div class="stat-val">${r.total_queued}</div><div class="stat-label">Queued</div></div>
-            <div class="stat green"><div class="stat-val">${r.submitted}</div><div class="stat-label">Submitted</div></div>
-            <div class="stat"><div class="stat-val">${r.disqualified_count}</div><div class="stat-label">Saved From Bad Pulls</div></div>
-            <div class="stat red"><div class="stat-val">${r.captcha}</div><div class="stat-label">Need Manual</div></div>
-          </div>
-          ${r.newly_unlocked?.length?`<div class="alert alert-ok">🎉 Tier advanced! New lenders unlocked: ${r.newly_unlocked.join(', ')}</div>`:''}
-        `;
-        loadApplications();loadDashboard();
-      }else if(s.status==='error'){
-        clearInterval(iv);btn.disabled=false;btn.textContent='⚡ Launch Campaign';
-        document.getElementById('campaign-body').innerHTML=`<div class="alert alert-err">Error: ${s.error}</div>`;
-      }
-    }catch(e){clearInterval(iv);}
-  },4000);
-}
-
-async function applySingle(lenderId,lenderName){
-  if(!currentBiz)return;
-  if(!confirm(`Apply to ${lenderName}? Mode: DRY RUN — change in Campaign Settings to go live.`))return;
-  try{
-    const r=await api(`/api/apply/single?business_id=${currentBiz}&lender_id=${lenderId}&dry_run=true`,{method:'POST'});
-    alert(`${lenderName}: ${r.status||r.message}`);
-    loadApplications();
-  }catch(e){alert('Error: '+e.message);}
-}
-
-// ── Lenders ─────────────────────────────────────────────────────────────────────
-async function loadLenders(){
-  try{
-    allLenders=await api('/api/lenders');
+// ── Lenders ───────────────────────────────────────────────────────────────────
+async function loadLenders() {
+  try {
+    allLenders = await api('/api/lenders');
     renderLenders(allLenders);
-  }catch(e){}
+  } catch(e) {
+    document.getElementById('lenders-body').innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--red)">Error loading lenders: ${e.message}</td></tr>`;
+  }
 }
-function filterLenders(){
-  const cat=document.getElementById('l-cat').value;
-  const tier=document.getElementById('l-tier').value;
+
+function filterLenders() {
+  const cat = document.getElementById('l-cat').value;
+  const tier = document.getElementById('l-tier').value;
   renderLenders(allLenders.filter(l=>(!cat||l.category===cat)&&(!tier||l.tier===tier)));
 }
-function renderLenders(list){
-  document.getElementById('lender-count').textContent=`${list.length} Lenders`;
-  document.getElementById('lenders-body').innerHTML=list.map(l=>`<tr class="lender-row">
-    <td><strong>${l.name}</strong><div style="font-size:10px;color:var(--muted)">${l.product_type||''}</div></td>
+
+function fmtCredit(v) {
+  if (!v) return '?';
+  return v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'K':v;
+}
+
+function bureaus(l) {
+  return (l.reports_to_dnb?'<span class="dnb">D&B</span>':'')+(l.reports_to_experian_biz?'<span class="exp">Exp</span>':'')+(l.reports_to_equifax_biz?'<span class="eq">EQ</span>':'');
+}
+
+function renderLenders(list) {
+  document.getElementById('lender-count').textContent = list.length+' Lenders';
+  document.getElementById('lenders-body').innerHTML = list.map(l=>`<tr class="lender-row">
+    <td>
+      <strong>${l.name}</strong>
+      <div style="font-size:10px;color:var(--muted)">${l.product_type||l.category||''}</div>
+      ${l.description?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${l.description.substring(0,80)}${l.description.length>80?'...':''}</div>`:''}
+    </td>
     <td><span class="badge b-${l.tier}">${l.tier}</span></td>
-    <td style="font-size:12px">$${l.credit_limit_max>=1e6?(l.credit_limit_max/1e6).toFixed(1)+'M':l.credit_limit_max>=1e3?(l.credit_limit_max/1e3).toFixed(0)+'K':l.credit_limit_max||'?'}</td>
+    <td style="font-size:12px">$${fmtCredit(l.credit_limit_max)}</td>
     <td style="font-size:12px">${l.req_min_personal_credit||'None'}</td>
     <td style="font-size:12px">${l.req_min_months?l.req_min_months+'mo':'Any'}</td>
     <td>${l.hard_pull?'<span class="pull-hard">Hard</span>':'<span class="pull-soft">Soft/None</span>'}</td>
-    <td><span class="bureau-dots">${l.reports_to_dnb?'<span class="dnb">D&B</span>':''}${l.reports_to_experian_biz?'<span class="exp">Exp</span>':''}${l.reports_to_equifax_biz?'<span class="eq">EQ</span>':''}</span></td>
+    <td><span class="bureau-dots">${bureaus(l)}</span></td>
     <td style="font-size:11px;color:var(--muted)">${l.approval_time||'?'}</td>
-  </tr>`).join('');
+    <td>
+      <button class="btn btn-sm btn-outline" onclick="applySingle(${l.id},'${l.name.replace(/'/g,"\\'")}',true)">🔍 Dry Run</button>
+      ${l.application_url?`<a href="${l.application_url}" target="_blank" class="btn btn-sm btn-primary" style="text-decoration:none;margin-left:4px">Apply →</a>`:''}
+    </td>
+  </tr>`).join('') || '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted)">No lenders found</td></tr>';
 }
 
-// ── Applications ─────────────────────────────────────────────────────────────
-async function loadApplications(){
-  const url='/api/applications'+(currentBiz?`?business_id=${currentBiz}`:'');
-  const apps=await api(url);
-  document.getElementById('apps-body').innerHTML=apps.map(a=>{
-    const status=(a.status||'').replace('ApplicationStatus.','');
-    return`<tr>
+// ── Qualify & Campaign ────────────────────────────────────────────────────────
+async function runQualify() {
+  if (!currentBiz) { window.alert('Select a business first'); return; }
+  document.getElementById('qual-results').style.display = 'block';
+  document.getElementById('qual-qualified-content').innerHTML = '<div style="text-align:center;padding:30px"><div class="spinner"></div> Scoring all lenders against your profile...</div>';
+  try {
+    const r = await api(`/api/lenders/qualify/${currentBiz}`);
+    document.getElementById('qcount-qualified').textContent = r.qualified.length;
+    document.getElementById('qcount-conditional').textContent = r.conditional.length;
+    document.getElementById('qcount-disqualified').textContent = r.disqualified.length;
+    renderQualTable('qualified', r.qualified);
+    renderQualTable('conditional', r.conditional);
+    renderQualTable('disqualified', r.disqualified);
+    showQualTab('qualified');
+  } catch(e) { document.getElementById('qual-qualified-content').innerHTML=`<div class="alert alert-err">Error: ${e.message}</div>`; }
+}
+
+function renderQualTable(type, items) {
+  const el = document.getElementById(`qual-${type}-content`);
+  if (!items.length) { el.innerHTML=`<div style="text-align:center;padding:24px;color:var(--muted)">None in this category</div>`; return; }
+  if (type==='disqualified') {
+    el.innerHTML=`<table><thead><tr><th>Lender</th><th>Tier</th><th>Why Disqualified</th><th>Re-Qualify In</th></tr></thead><tbody>
+    ${items.map(i=>`<tr>
+      <td><strong>${i.lender.name}</strong><div style="font-size:10px;color:var(--muted)">${i.lender.category}</div></td>
+      <td><span class="badge b-${i.lender.tier}">${i.lender.tier}</span></td>
+      <td style="font-size:11px;color:var(--red)">${(i.hard_fails||[]).join('; ')||i.summary||'—'}</td>
+      <td style="font-size:11px;color:var(--muted)">${i.requalify_months===0?'Now':i.requalify_months+'mo'}</td>
+    </tr>`).join('')}</tbody></table>`;
+    return;
+  }
+  el.innerHTML=`<table><thead><tr><th>Lender</th><th>Tier</th><th>Score</th><th>Max Credit</th><th>Pull</th><th>Reports</th><th>Notes</th><th>Action</th></tr></thead><tbody>
+  ${items.map(i=>`<tr>
+    <td><strong>${i.lender.name}</strong><div style="font-size:10px;color:var(--muted)">${i.lender.product_type||''}</div></td>
+    <td><span class="badge b-${i.lender.tier}">${i.lender.tier}</span></td>
+    <td><div class="prob-bar" style="min-width:80px">
+      <div class="prob-text" style="color:${i.qual_score>=70?'var(--green)':i.qual_score>=50?'var(--gold)':'var(--red)'}">${i.qual_score}%</div>
+      <div class="prog-bar"><div class="prog-fill" style="width:${i.qual_score}%;background:${i.qual_score>=70?'var(--green)':i.qual_score>=50?'var(--gold)':'var(--red)'}"></div></div>
+    </div></td>
+    <td style="font-size:11px">$${fmtCredit(i.lender.credit_limit_max)}</td>
+    <td>${i.lender.hard_pull?'<span class="pull-hard">Hard</span>':'<span class="pull-soft">Soft/None</span>'}</td>
+    <td><span class="bureau-dots">${bureaus(i.lender)}</span></td>
+    <td style="font-size:10px;color:var(--muted)">${(i.passes||[]).slice(0,2).join(' · ')}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-sm btn-outline" onclick="applySingle(${i.lender.id},'${i.lender.name.replace(/'/g,"\\'")}',true)" style="margin-bottom:3px">🔍 Dry Run</button><br>
+      ${type==='qualified'?`<button class="btn btn-sm btn-green" onclick="applySingle(${i.lender.id},'${i.lender.name.replace(/'/g,"\\'")}',false)">Apply →</button>`:
+        `<button class="btn btn-sm btn-outline" onclick="applySingle(${i.lender.id},'${i.lender.name.replace(/'/g,"\\'")}',false)" style="opacity:.6">Apply →</button>`}
+    </td>
+  </tr>`).join('')}</tbody></table>`;
+}
+
+function showQualTab(tab) {
+  ['qualified','conditional','disqualified'].forEach(t=>{
+    document.getElementById(`qual-${t}-content`).style.display = t===tab?'block':'none';
+    document.getElementById(`qtab-${t}`).classList.toggle('active', t===tab);
+  });
+}
+
+async function launchCampaign() {
+  if (!currentBiz) { window.alert('Select a business first'); return; }
+  const mode = document.getElementById('camp-mode').value;
+  if (mode==='false' && !confirm('⚠️ LIVE MODE will actually submit applications to lenders. Continue?')) return;
+  const btn = document.getElementById('launch-btn');
+  btn.disabled=true; btn.textContent='⏳ Launching...';
+  document.getElementById('campaign-status').style.display='block';
+  document.getElementById('campaign-body').innerHTML='<div class="spinner"></div> Campaign running...';
+  try {
+    const r = await api('/api/campaign/start',{method:'POST',body:JSON.stringify({
+      business_id: currentBiz,
+      max_applications: parseInt(document.getElementById('camp-max').value)||null,
+      dry_run: mode==='true',
+      include_conditional: document.getElementById('camp-conditional').value==='true',
+      categories: document.getElementById('camp-cat').value?[document.getElementById('camp-cat').value]:null,
+      tier_filter: document.getElementById('camp-tier').value||null,
+    })});
+    pollCampaign(r.task_id, btn);
+  } catch(e) {
+    document.getElementById('campaign-body').innerHTML=`<div class="alert alert-err">${e.message}</div>`;
+    btn.disabled=false; btn.textContent='⚡ Launch Campaign';
+  }
+}
+
+function pollCampaign(id, btn) {
+  const iv = setInterval(async()=>{
+    try {
+      const s = await api(`/api/campaign/status/${id}`);
+      if (s.status==='complete') {
+        clearInterval(iv); btn.disabled=false; btn.textContent='⚡ Launch Campaign';
+        const r = s.results||{};
+        document.getElementById('campaign-body').innerHTML=`<div class="alert alert-ok">✅ Campaign Complete!</div>
+          <div class="stats-grid">
+            <div class="stat"><div class="stat-val">${r.total_queued||0}</div><div class="stat-label">Queued</div></div>
+            <div class="stat green"><div class="stat-val">${r.submitted||0}</div><div class="stat-label">Submitted</div></div>
+            <div class="stat"><div class="stat-val">${r.disqualified_count||0}</div><div class="stat-label">Saved From Bad Pulls</div></div>
+            <div class="stat red"><div class="stat-val">${r.captcha||0}</div><div class="stat-label">Need Manual</div></div>
+          </div>`;
+        loadDashboard(); loadApplications();
+      } else if (s.status==='error') {
+        clearInterval(iv); btn.disabled=false; btn.textContent='⚡ Launch Campaign';
+        document.getElementById('campaign-body').innerHTML=`<div class="alert alert-err">Error: ${s.error}</div>`;
+      }
+    } catch(e) { clearInterval(iv); }
+  }, 3000);
+}
+
+async function applySingle(lenderId, lenderName, dryRun) {
+  if (!currentBiz) { window.alert('Select a business first'); return; }
+  const modeText = dryRun ? 'DRY RUN (no real application)' : 'LIVE (real application)';
+  if (!confirm(`Apply to ${lenderName}?\nMode: ${modeText}`)) return;
+  try {
+    const r = await api(`/api/apply/single?business_id=${currentBiz}&lender_id=${lenderId}&dry_run=${dryRun}`,{method:'POST'});
+    window.alert(`${lenderName}: ${r.status||r.message||JSON.stringify(r)}`);
+    loadApplications(); loadDashboard();
+  } catch(e) { window.alert('Error: '+e.message); }
+}
+
+// ── Applications ──────────────────────────────────────────────────────────────
+async function loadApplications() {
+  try {
+    const apps = await api('/api/applications'+(currentBiz?`?business_id=${currentBiz}`:''));
+    const status = a => (a.status||'').replace('ApplicationStatus.','');
+    document.getElementById('apps-body').innerHTML = apps.map(a=>`<tr>
       <td><strong>${a.lender_name}</strong></td>
       <td><span class="badge b-${a.lender_tier||'starter'}">${a.lender_tier||'?'}</span></td>
-      <td><span class="badge b-${status}">${status}</span></td>
-      <td style="font-size:11px">${a.qualification_score?a.qualification_score.toFixed(0)+'%':''}</td>
+      <td><span class="badge b-${status(a)}">${status(a)}</span></td>
+      <td style="font-size:11px">${a.qualification_score?Math.round(a.qualification_score)+'%':''}</td>
       <td style="color:var(--muted);font-size:11px">${a.reference_number||'—'}</td>
-      <td style="font-size:10px;color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.ai_notes||a.error_message||'—'}</td>
+      <td style="font-size:10px;color:var(--muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.ai_notes||a.error_message||'—'}</td>
       <td style="font-size:11px;color:var(--muted)">${a.submitted_at?new Date(a.submitted_at).toLocaleDateString():'—'}</td>
-    </tr>`;
-  }).join('')||'<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">No applications</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">No applications yet — run a Dry Run or Launch Campaign from Qualify Lenders</td></tr>';
+  } catch(e) { document.getElementById('apps-body').innerHTML=`<tr><td colspan="7" style="color:var(--red);padding:16px">Error: ${e.message}</td></tr>`; }
 }
 
-// ── Accounts ─────────────────────────────────────────────────────────────────
-async function loadAccounts(){
-  const url='/api/accounts'+(currentBiz?`?business_id=${currentBiz}`:'');
-  const accs=await api(url);
-  document.getElementById('accounts-body').innerHTML=accs.map(a=>`<tr>
-    <td><strong>${a.account_name}</strong></td>
-    <td style="color:var(--muted);font-size:11px">${a.account_type}</td>
-    <td>$${(a.credit_limit||0).toLocaleString()}</td>
-    <td>$${(a.current_balance||0).toLocaleString()}</td>
-    <td style="color:${(a.utilization_pct||0)<20?'var(--green)':(a.utilization_pct||0)<50?'var(--gold)':'var(--red)'}">${(a.utilization_pct||0).toFixed(0)}%</td>
-    <td style="font-size:11px">${a.on_time_payments} ✅ / ${a.late_payments} ❌</td>
-    <td><span class="bureau-dots">${a.reports_to_dnb?'<span class="dnb">D&B</span>':''}${a.reports_to_experian_biz?'<span class="exp">Exp</span>':''}${a.reports_to_equifax_biz?'<span class="eq">EQ</span>':''}</span></td>
-    <td style="font-size:11px;color:var(--muted)">${a.payment_due_date||'—'}</td>
-    <td><button class="btn btn-sm btn-outline" onclick="editAccount(${a.id})">Edit</button></td>
-  </tr>`).join('')||'<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted)">No active accounts</td></tr>';
+// ── Accounts ──────────────────────────────────────────────────────────────────
+async function loadAccounts() {
+  try {
+    const accs = await api('/api/accounts'+(currentBiz?`?business_id=${currentBiz}`:''));
+    document.getElementById('accounts-body').innerHTML = accs.map(a=>`<tr>
+      <td><strong>${a.account_name}</strong></td>
+      <td style="color:var(--muted);font-size:11px">${a.account_type}</td>
+      <td>$${(a.credit_limit||0).toLocaleString()}</td>
+      <td>$${(a.current_balance||0).toLocaleString()}</td>
+      <td style="color:${(a.utilization_pct||0)<15?'var(--green)':(a.utilization_pct||0)<30?'var(--gold)':'var(--red)'}">${Math.round(a.utilization_pct||0)}%</td>
+      <td style="font-size:11px">${a.on_time_payments||0} ✅ / ${a.late_payments||0} ❌</td>
+      <td><span class="bureau-dots">${bureaus(a)}</span></td>
+      <td style="font-size:11px;color:var(--muted)">${a.payment_due_date||'—'}</td>
+      <td><button class="btn btn-sm btn-outline" onclick="editAccount(${a.id})">Edit</button></td>
+    </tr>`).join('') || '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--muted)">No active accounts yet — accounts appear after applications are approved</td></tr>';
+  } catch(e) { document.getElementById('accounts-body').innerHTML=`<tr><td colspan="9" style="color:var(--red);padding:16px">Error: ${e.message}</td></tr>`; }
 }
-function editAccount(id){const limit=prompt('New credit limit:');if(limit)api(`/api/accounts/${id}`,{method:'PUT',body:JSON.stringify({credit_limit:parseFloat(limit)})}).then(()=>loadAccounts());}
 
-// ── Payments ─────────────────────────────────────────────────────────────────
-async function loadPayments(){
-  if(!currentBiz)return;
-  const [payments,summary]=await Promise.all([
-    api(`/api/payments?business_id=${currentBiz}`),
-    api(`/api/payments/summary/${currentBiz}`),
-  ]);
-  document.getElementById('payment-summary-cards').innerHTML=`
-    <div class="stat red"><div class="stat-val">${summary.overdue_count}</div><div class="stat-label">Overdue</div></div>
-    <div class="stat gold"><div class="stat-val">${summary.due_soon_count}</div><div class="stat-label">Due Soon</div></div>
-    <div class="stat"><div class="stat-val">$${(summary.upcoming_30d_amount||0).toFixed(0)}</div><div class="stat-label">Due Next 30 Days</div></div>
-    <div class="stat green"><div class="stat-val">${summary.on_time_rate}%</div><div class="stat-label">On-Time Rate</div></div>
-  `;
-  document.getElementById('payments-body').innerHTML=payments.map(p=>{
-    const status=(p.payment_status||'').replace('PaymentStatus.','');
-    return`<tr class="payment-row ${status}">
+function editAccount(id) {
+  const limit = prompt('New credit limit:');
+  if (limit) api(`/api/accounts/${id}`,{method:'PUT',body:JSON.stringify({credit_limit:parseFloat(limit)})}).then(()=>loadAccounts()).catch(e=>window.alert(e.message));
+}
+
+// ── Payments ──────────────────────────────────────────────────────────────────
+async function loadPayments() {
+  if (!currentBiz) return;
+  try {
+    const [payments, summary] = await Promise.all([
+      api(`/api/payments?business_id=${currentBiz}`),
+      api(`/api/payments/summary/${currentBiz}`),
+    ]);
+    document.getElementById('payment-summary-cards').innerHTML=`
+      <div class="stat red"><div class="stat-val">${summary.overdue_count||0}</div><div class="stat-label">Overdue</div></div>
+      <div class="stat gold"><div class="stat-val">${summary.due_soon_count||0}</div><div class="stat-label">Due Soon</div></div>
+      <div class="stat"><div class="stat-val">$${Math.round(summary.upcoming_30d_amount||0)}</div><div class="stat-label">Due Next 30 Days</div></div>
+      <div class="stat green"><div class="stat-val">${summary.on_time_rate||100}%</div><div class="stat-label">On-Time Rate</div></div>`;
+    const st = p => (p.payment_status||'').replace('PaymentStatus.','');
+    document.getElementById('payments-body').innerHTML = payments.map(p=>`<tr class="payment-row ${st(p)}">
       <td><strong>${p.account_name}</strong></td>
-      <td>${p.due_date}</td>
+      <td>${p.due_date||'—'}</td>
       <td>$${(p.amount_due||0).toFixed(2)}</td>
-      <td><span class="badge b-${status}">${status}</span></td>
-      <td style="font-size:12px">${p.days_until_due!=null?p.days_until_due>0?`${p.days_until_due}d`:'TODAY':`${p.overdue_days}d LATE`:''}</td>
-      <td><button class="btn btn-sm btn-green" onclick="markPaid(${p.id},${p.amount_due})">✓ Mark Paid</button></td>
-    </tr>`;
-  }).join('')||'<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted)">No upcoming payments</td></tr>';
+      <td><span class="badge b-${st(p)}">${st(p)}</span></td>
+      <td style="font-size:12px">${p.days_until_due!=null?(p.days_until_due>0?p.days_until_due+'d':'TODAY'):(p.overdue_days||0)+'d LATE':''}</td>
+      <td><button class="btn btn-sm btn-green" onclick="markPaid(${p.id},${p.amount_due||0})">✓ Mark Paid</button></td>
+    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted)">No payments scheduled</td></tr>';
+  } catch(e) { console.error('payments:', e); }
 }
 
-async function markPaid(id,amount){
-  const paid=parseFloat(prompt(`Amount paid (default: ${amount}):`,amount)||amount);
-  const conf=prompt('Confirmation number (optional):','');
-  await api('/api/payments/mark-paid',{method:'POST',body:JSON.stringify({payment_id:id,amount:paid,confirmation:conf||''})});
-  loadPayments();loadDashboard();
+async function markPaid(id, amount) {
+  const paid = parseFloat(prompt(`Amount paid:`, amount)||amount);
+  if (isNaN(paid)) return;
+  const conf = prompt('Confirmation number (optional):','') || '';
+  try {
+    await api('/api/payments/mark-paid',{method:'POST',body:JSON.stringify({payment_id:id,amount:paid,confirmation:conf})});
+    loadPayments(); loadDashboard();
+  } catch(e) { window.alert('Error: '+e.message); }
 }
 
-async function triggerPaymentCheck(){
-  await api('/api/payments/check',{method:'POST'});
-  alert('Payment check complete — reminders sent if needed');
-  loadPayments();
+async function triggerPaymentCheck() {
+  try { await api('/api/payments/check',{method:'POST'}); window.alert('Payment check complete'); loadPayments(); }
+  catch(e) { window.alert('Error: '+e.message); }
 }
 
-// ── Business Save/Load ────────────────────────────────────────────────────────
-async function saveBusiness(){
-  const numFields=['annual_revenue','monthly_revenue','years_in_business','num_employees','average_bank_balance','personal_credit_score','dnb_paydex','experian_intelliscore','equifax_business_score','existing_tradelines','owner_percentage'];
-  const fields=['legal_name','dba_name','entity_type','state_of_incorporation','date_of_incorporation','ein','duns_number','business_address','business_city','business_state','business_zip','business_phone','business_email','website','industry','naics_code','owner_first_name','owner_last_name','owner_ssn','owner_dob','owner_address','owner_city','owner_state','owner_zip','owner_phone','owner_email','bank_name',...numFields];
-  const data={};
-  fields.forEach(f=>{const el=document.getElementById('f-'+f);if(el){const v=el.value;data[f]=numFields.includes(f)?(parseFloat(v)||0):v;}});
-  const bc=document.getElementById('f-business_checking_account');
-  data.business_checking_account=bc?bc.value==='true':false;
-  const alert=document.getElementById('biz-alert');
-  try{
-    const r=await api('/api/business',{method:'POST',body:JSON.stringify(data)});
-    alert.innerHTML=`<div class="alert alert-ok">✅ Saved! Business ID: ${r.id}</div>`;
-    loadBizList();
-  }catch(e){alert.innerHTML=`<div class="alert alert-err">Error: ${e.message}</div>`;}
+// ── Business Profile ──────────────────────────────────────────────────────────
+async function loadBusinessForm() {
+  if (!currentBiz) return;
+  try {
+    const d = await api(`/api/business/${currentBiz}`);
+    Object.entries(d).forEach(([k,v])=>{
+      const el = document.getElementById('f-'+k);
+      if (el && v!=null) el.value = v;
+    });
+  } catch(e) { console.error('loadBusinessForm:', e); }
 }
-async function loadBusinessForm(){
-  if(!currentBiz)return;
-  const d=await api(`/api/business/${currentBiz}`);
-  Object.entries(d).forEach(([k,v])=>{const el=document.getElementById('f-'+k);if(el&&v!=null)el.value=v;});
+
+async function saveBusiness() {
+  const bizAlert = document.getElementById('biz-alert');
+  const numFields = ['annual_revenue','monthly_revenue','years_in_business','num_employees','average_bank_balance','personal_credit_score','dnb_paydex','experian_intelliscore','equifax_business_score','existing_tradelines','owner_percentage'];
+  const txtFields = ['legal_name','dba_name','entity_type','state_of_incorporation','date_of_incorporation','ein','duns_number','business_address','business_city','business_state','business_zip','business_phone','business_email','website','industry','naics_code','owner_first_name','owner_last_name','owner_ssn','owner_dob','owner_address','owner_city','owner_state','owner_zip','owner_phone','owner_email','bank_name'];
+  const data = {};
+  [...txtFields,...numFields].forEach(f=>{
+    const el = document.getElementById('f-'+f);
+    if (el) data[f] = numFields.includes(f) ? (parseFloat(el.value)||0) : el.value;
+  });
+  const bc = document.getElementById('f-business_checking_account');
+  data.business_checking_account = bc ? bc.value==='true' : false;
+  try {
+    let r;
+    if (currentBiz) {
+      r = await api(`/api/business/${currentBiz}`,{method:'PUT',body:JSON.stringify(data)});
+      bizAlert.innerHTML = '<div class="alert alert-ok">✅ Profile updated!</div>';
+    } else {
+      r = await api('/api/business',{method:'POST',body:JSON.stringify(data)});
+      bizAlert.innerHTML = `<div class="alert alert-ok">✅ Business created! ID: ${r.id}</div>`;
+    }
+    await loadBizList();
+  } catch(e) { bizAlert.innerHTML=`<div class="alert alert-err">Error: ${e.message}</div>`; }
 }
 
 // ── Credit Brain ──────────────────────────────────────────────────────────────
-async function sendBrain(){
-  if(!currentBiz)return alert('Select a business first');
-  const input=document.getElementById('brain-input');
-  const msg=input.value.trim();if(!msg)return;
-  input.value='';
-  addBrainMsg(msg,'user');
-  const typing=addBrainMsg('<div class="spinner"></div>','brain');
-  try{
-    const r=await api('/api/brain/think',{method:'POST',body:JSON.stringify({message:msg,business_id:currentBiz,session_id:brainSession})});
-    brainSession=r.session_id;
-    typing.remove();
-    addBrainMsg(r.response,'brain');
-    if(r.authorization_required){
-      showAuthBox(r.authorization_required);
-    }
-  }catch(e){typing.remove();addBrainMsg('Error: '+e.message,'ai');}
-}
-
-function addBrainMsg(text,type){
-  const msgs=document.getElementById('brain-msgs');
-  const div=document.createElement('div');
-  div.className='msg '+type;div.innerHTML=text;
-  msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;
+function addBrainMsg(text, type) {
+  const msgs = document.getElementById('brain-msgs');
+  const div = document.createElement('div');
+  div.className = 'msg '+type;
+  div.innerHTML = text;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
   return div;
 }
 
-function showAuthBox(auth){
-  const area=document.getElementById('brain-auth-area');
-  const details=auth.details||{};
-  area.innerHTML=`<div class="auth-box">
+function showAuthBox(auth) {
+  const d = auth.details||{};
+  document.getElementById('brain-auth-area').innerHTML=`<div class="auth-box">
     <h3>⚡ Authorization Required</h3>
     <p>${auth.summary}</p>
     <div class="auth-details">
-      ${details.lenders?`<strong>Lenders:</strong> ${details.lenders.join(', ')}<br>`:''}
-      ${details.total_hard_pulls!==undefined?`<strong>Hard Pulls:</strong> ${details.total_hard_pulls} | <strong>Soft/No Pull:</strong> ${details.total_soft_pulls||'N/A'}<br>`:''}
-      ${details.estimated_credit?`<strong>Est. Credit:</strong> $${details.estimated_credit.toLocaleString()}<br>`:''}
-      ${details.benefits?.length?`<strong>Benefits:</strong><ul>${details.benefits.map(b=>`<li>${b}</li>`).join('')}</ul>`:''}
-      ${details.risks?.length?`<strong>Risks:</strong><ul>${details.risks.map(r=>`<li>${r}</li>`).join('')}</ul>`:''}
+      ${d.lenders?.length?`<strong>Lenders:</strong> ${d.lenders.join(', ')}<br>`:''}
+      ${d.total_hard_pulls!=null?`<strong>Hard Pulls:</strong> ${d.total_hard_pulls} | Soft: ${d.total_soft_pulls||0}<br>`:''}
+      ${d.estimated_credit?`<strong>Est. Credit:</strong> $${d.estimated_credit.toLocaleString()}<br>`:''}
+      ${d.benefits?.length?`<strong>Benefits:</strong><ul>${d.benefits.map(b=>`<li>${b}</li>`).join('')}</ul>`:''}
+      ${d.risks?.length?`<strong>Risks:</strong><ul>${d.risks.map(r=>`<li>${r}</li>`).join('')}</ul>`:''}
     </div>
     <div class="auth-buttons">
-      <button class="btn btn-green" onclick="authorize(true)">✅ AUTHORIZE — Proceed</button>
-      <button class="btn btn-red" onclick="authorize(false)">❌ DENY — Stop</button>
+      <button class="btn btn-green" onclick="authorize(true)">✅ AUTHORIZE</button>
+      <button class="btn btn-red" onclick="authorize(false)">❌ DENY</button>
     </div>
   </div>`;
 }
 
-async function authorize(approved){
-  document.getElementById('brain-auth-area').innerHTML='';
-  addBrainMsg(approved?'✅ Authorized — proceeding...':'❌ Denied.','system');
-  const typing=addBrainMsg('<div class="spinner"></div>','brain');
-  try{
-    const r=await api('/api/brain/authorize',{method:'POST',body:JSON.stringify({session_id:brainSession,authorized:approved,business_id:currentBiz})});
+async function sendBrain() {
+  if (!currentBiz) { window.alert('Select a business first'); return; }
+  const input = document.getElementById('brain-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  addBrainMsg(msg, 'user');
+  const typing = addBrainMsg('<div class="spinner"></div> Thinking...', 'brain');
+  try {
+    const r = await api('/api/brain/think',{method:'POST',body:JSON.stringify({message:msg,business_id:currentBiz,session_id:brainSession})});
+    brainSession = r.session_id;
     typing.remove();
-    addBrainMsg(r.response,'brain');
-    if(r.authorization_required)showAuthBox(r.authorization_required);
-    loadDashboard();loadApplications();
-  }catch(e){typing.remove();addBrainMsg('Error: '+e.message,'ai');}
+    if (r.response) addBrainMsg(r.response, 'brain');
+    if (r.authorization_required) showAuthBox(r.authorization_required);
+  } catch(e) { typing.remove(); addBrainMsg('❌ Error: '+e.message+'\n\nMake sure ANTHROPIC_API_KEY is set in your .env file.', 'ai'); }
+}
+
+async function authorize(approved) {
+  document.getElementById('brain-auth-area').innerHTML='';
+  addBrainMsg(approved?'✅ Authorized.':'❌ Denied.','system');
+  const typing = addBrainMsg('<div class="spinner"></div>','brain');
+  try {
+    const r = await api('/api/brain/authorize',{method:'POST',body:JSON.stringify({session_id:brainSession,authorized:approved,business_id:currentBiz})});
+    typing.remove();
+    if (r.response) addBrainMsg(r.response,'brain');
+    if (r.authorization_required) showAuthBox(r.authorization_required);
+    loadDashboard();
+  } catch(e) { typing.remove(); addBrainMsg('Error: '+e.message,'ai'); }
 }
 
 function brainKeydown(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendBrain();}}
 
-// ── AI Advisor ─────────────────────────────────────────────────────────────────
-async function sendAdvisor(){
-  const input=document.getElementById('advisor-input');
-  const msg=input.value.trim();if(!msg)return;input.value='';
-  const msgs=document.getElementById('advisor-msgs');
-  const addMsg=(text,type)=>{const d=document.createElement('div');d.className='msg '+type;d.textContent=text;msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;return d;};
-  addMsg(msg,'user');
+// ── AI Advisor ────────────────────────────────────────────────────────────────
+async function sendAdvisor() {
+  const input = document.getElementById('advisor-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  const msgs = document.getElementById('advisor-msgs');
+  const add = (text, type) => {const d=document.createElement('div');d.className='msg '+type;d.innerHTML=text;msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;return d;};
+  add(msg,'user');
   advisorHistory.push({role:'user',content:msg});
-  const t=addMsg('','ai');t.innerHTML='<div class="spinner"></div>';
-  try{
-    const r=await api('/api/chat',{method:'POST',body:JSON.stringify({message:msg,business_id:currentBiz,history:advisorHistory.slice(-10)})});
-    t.textContent=r.response;advisorHistory.push({role:'assistant',content:r.response});
-  }catch(e){t.textContent='Error: '+e.message;}
+  const t = add('<div class="spinner"></div>','ai');
+  try {
+    const r = await api('/api/chat',{method:'POST',body:JSON.stringify({message:msg,business_id:currentBiz,history:advisorHistory.slice(-10)})});
+    t.textContent = r.response;
+    advisorHistory.push({role:'assistant',content:r.response});
+  } catch(e) { t.textContent='❌ Error: '+e.message+'\n\nMake sure ANTHROPIC_API_KEY is set in .env'; }
 }
+
 function advisorKeydown(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendAdvisor();}}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-loadBizList();
-loadDashboard();
-loadLenders();
+async function init() {
+  await loadBizList();
+  nav('dashboard');
+  loadLenders(); // pre-load lenders in background
+}
+
+init();
 </script>
 </body>
 </html>

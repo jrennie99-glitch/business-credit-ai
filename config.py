@@ -6,6 +6,13 @@ import os
 
 class Settings(BaseSettings):
     anthropic_api_key: str = Field(default="", env="ANTHROPIC_API_KEY")
+    anthropic_model: str = Field(default="claude-sonnet-4-6", env="ANTHROPIC_MODEL")
+
+    # LLM provider: "ollama" (default, runs locally) or "anthropic"
+    llm_provider: str = Field(default="ollama", env="LLM_PROVIDER")
+    ollama_base_url: str = Field(default="http://localhost:11434", env="OLLAMA_BASE_URL")
+    ollama_model: str = Field(default="llama3.2:3b", env="OLLAMA_MODEL")
+
     database_url: str = Field(default="sqlite:///./business_credit.db", env="DATABASE_URL")
     secret_key: str = Field(default="change-me-in-production", env="SECRET_KEY")
     debug: bool = Field(default=False, env="DEBUG")

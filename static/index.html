@@ -385,10 +385,11 @@ tr:hover td{background:var(--s2)}
         <option value="established">Established</option><option value="advanced">Advanced</option><option value="premium">Premium</option>
       </select>
       <button class="btn btn-sm btn-outline" onclick="loadLenders()">🔄 Refresh</button>
+      <button class="btn btn-sm btn-gold" onclick="applyAllStarters()" id="apply-starters-btn">🚀 Apply All Starters</button>
     </div>
   </div>
   <div class="card" style="padding:0;overflow:hidden">
-    <table><thead><tr><th>Lender</th><th>Tier</th><th>Max Credit</th><th>Min Score</th><th>Min Age</th><th>Pull</th><th>Reports To</th><th>Time</th></tr></thead>
+    <table><thead><tr><th>Lender</th><th>Tier</th><th>Max Credit</th><th>Min Score</th><th>Min Age</th><th>Pull</th><th>Reports To</th><th>Time</th><th>Actions</th></tr></thead>
     <tbody id="lenders-body"></tbody></table>
   </div>
 </div>
@@ -816,6 +817,42 @@ async function applySingle(lenderId, lenderName, dryRun) {
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = origText; }
   }
+}
+
+async function applyAllStarters() {
+  if (!currentBiz) { window.alert('Select a business first'); return; }
+  const starters = allLenders.filter(l => l.tier === 'starter');
+  if (starters.length === 0) { window.alert('No starter lenders found'); return; }
+  if (!confirm(`🚀 Apply to ALL ${starters.length} starter lenders?\n\nThe bot will apply to each one in sequence. This takes 3-8 minutes total.\n\nMake sure your Business Profile is fully filled in.\n\nProceed?`)) return;
+
+  const btn = document.getElementById('apply-starters-btn');
+  const banner = document.getElementById('apply-status-banner');
+  btn.disabled = true; btn.innerHTML = '⏳ Applying...';
+
+  let done = 0, submitted = 0, skipped = 0, errors = 0;
+  for (const l of starters) {
+    if (banner) {
+      banner.style.display = 'block';
+      banner.className = 'alert alert-info';
+      banner.innerHTML = `<div class="spinner" style="display:inline-block;margin-right:8px"></div> <strong>(${done+1}/${starters.length})</strong> 🤖 Applying to <strong>${l.name}</strong>...`;
+    }
+    try {
+      const r = await api(`/api/apply/single?business_id=${currentBiz}&lender_id=${l.id}&dry_run=false`, {method:'POST'});
+      const s = r.status || '';
+      if (s === 'submitted' || s === 'approved') submitted++;
+      else if (s === 'disqualified' || s === 'skipped') skipped++;
+      else errors++;
+    } catch(e) { errors++; }
+    done++;
+    await new Promise(res => setTimeout(res, 1500)); // brief pause between applications
+  }
+
+  if (banner) {
+    banner.className = 'alert alert-ok';
+    banner.innerHTML = `✅ Starter campaign complete — ${done} attempted: <strong>${submitted} submitted</strong>, ${skipped} skipped/disqualified, ${errors} errors. Check Applications tab for details.`;
+  }
+  btn.disabled = false; btn.innerHTML = '🚀 Apply All Starters';
+  loadApplications(); loadDashboard();
 }
 
 // ── Applications ──────────────────────────────────────────────────────────────

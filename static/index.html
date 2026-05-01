@@ -369,6 +369,7 @@ tr:hover td{background:var(--s2)}
 
 <!-- LENDER DATABASE -->
 <div id="page-lenders" style="display:none">
+  <div id="apply-status-banner" class="alert alert-info" style="display:none;margin-bottom:14px"></div>
   <div class="section-header">
     <h3 id="lender-count">All Lenders</h3>
     <div style="display:flex;gap:8px">
@@ -669,9 +670,9 @@ function renderLenders(list) {
     <td>${l.hard_pull?'<span class="pull-hard">Hard</span>':'<span class="pull-soft">Soft/None</span>'}</td>
     <td><span class="bureau-dots">${bureaus(l)}</span></td>
     <td style="font-size:11px;color:var(--muted)">${l.approval_time||'?'}</td>
-    <td>
-      <button class="btn btn-sm btn-outline" onclick="applySingle(${l.id},'${l.name.replace(/'/g,"\\'")}',true)">🔍 Dry Run</button>
-      ${l.application_url?`<a href="${l.application_url}" target="_blank" class="btn btn-sm btn-primary" style="text-decoration:none;margin-left:4px">Apply →</a>`:''}
+    <td style="white-space:nowrap">
+      <button class="btn btn-sm btn-outline" onclick="applySingle(${l.id},'${l.name.replace(/'/g,"\\'")}',true)" title="Simulate — no real application sent">🔍 Test</button>
+      <button class="btn btn-sm btn-green" onclick="applySingle(${l.id},'${l.name.replace(/'/g,"\\'")}',false)" style="margin-left:4px" title="Bot fills and submits the real application">🤖 Auto Apply</button>
     </td>
   </tr>`).join('') || '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted)">No lenders found</td></tr>';
 }
@@ -782,13 +783,39 @@ function pollCampaign(id, btn) {
 
 async function applySingle(lenderId, lenderName, dryRun) {
   if (!currentBiz) { window.alert('Select a business first'); return; }
-  const modeText = dryRun ? 'DRY RUN (no real application)' : 'LIVE (real application)';
-  if (!confirm(`Apply to ${lenderName}?\nMode: ${modeText}`)) return;
+  if (!dryRun && !confirm(`🤖 Auto Apply to ${lenderName}?\n\nThe bot will open a browser, fill the real application form, and submit it.\n\nMake sure your Business Profile is fully filled in first.\n\nProceed?`)) return;
+
+  // Find the clicked button and show loading state
+  const btn = event?.currentTarget || event?.target;
+  const origText = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = dryRun ? '⏳ Testing...' : '⏳ Applying...'; }
+
+  // Show status banner at top of lenders page
+  const banner = document.getElementById('apply-status-banner');
+  if (banner) {
+    banner.style.display = 'block';
+    banner.className = 'alert alert-info';
+    banner.innerHTML = dryRun
+      ? `<div class="spinner" style="display:inline-block;margin-right:8px"></div> Testing qualification for <strong>${lenderName}</strong>...`
+      : `<div class="spinner" style="display:inline-block;margin-right:8px"></div> 🤖 Bot is filling the <strong>${lenderName}</strong> application — this takes 30-60 seconds...`;
+  }
+
   try {
     const r = await api(`/api/apply/single?business_id=${currentBiz}&lender_id=${lenderId}&dry_run=${dryRun}`,{method:'POST'});
-    window.alert(`${lenderName}: ${r.status||r.message||JSON.stringify(r)}`);
+    const status = r.status || 'unknown';
+    const msg = r.message || r.status_message || JSON.stringify(r);
+    if (banner) {
+      const cls = status==='submitted'||status==='approved' ? 'alert-ok' : status==='disqualified' ? 'alert-err' : 'alert-warn';
+      const icon = status==='submitted'||status==='approved' ? '✅' : status==='disqualified' ? '❌' : status==='skipped' ? '⏭' : 'ℹ️';
+      banner.className = 'alert ' + cls;
+      banner.innerHTML = `<strong>${icon} ${lenderName}</strong>: ${msg}`;
+    }
     loadApplications(); loadDashboard();
-  } catch(e) { window.alert('Error: '+e.message); }
+  } catch(e) {
+    if (banner) { banner.className='alert alert-err'; banner.innerHTML=`❌ Error applying to <strong>${lenderName}</strong>: ${e.message}`; }
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = origText; }
+  }
 }
 
 // ── Applications ──────────────────────────────────────────────────────────────

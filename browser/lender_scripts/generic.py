@@ -1,14 +1,41 @@
 """
-Generic lender script — Claude Vision analyzes the page and fills it intelligently.
-Used as a fallback for any lender without a dedicated script.
+Generic lender script — extracts form fields from the DOM as text and uses
+the configured LLM (Ollama or Anthropic) to decide what to fill.
+No vision/screenshot required — works with any text LLM.
 """
 
 import asyncio
-import base64
 import json
-import anthropic
 from browser.lender_scripts.base import BaseLenderScript, ApplyResult
-from config import settings
+from utils.llm import LLMClient
+from utils.logger import log
+
+
+_llm = LLMClient()
+
+_FILL_SYSTEM = """You are a business credit application bot. Given a list of visible form fields
+and business data, return exact JSON fill instructions. Use only the selectors provided.
+
+Return ONLY this JSON structure — no other text:
+{
+  "done": false,
+  "captcha": false,
+  "submit": true,
+  "fields": [
+    {"selector": "#company_name", "value": "Acme LLC", "type": "text"}
+  ]
+}
+
+Rules:
+- "done": true if there are no fillable fields (success/confirmation page)
+- "captcha": true if fields list mentions a CAPTCHA or reCAPTCHA
+- "submit": true when all visible fields are filled and the form is ready to submit
+- Only include fields you have data for — skip fields where data is unknown/empty
+- type is one of: text, email, tel, select, checkbox, textarea
+- For "select" type, set value to the exact option text
+- For "checkbox" type, set value to "true" to check it
+- Format phone as (XXX) XXX-XXXX, EIN as XX-XXXXXXX, dates as MM/DD/YYYY
+- Do not invent data — only use what's in the business profile"""
 
 
 class GenericScript(BaseLenderScript):
@@ -17,7 +44,6 @@ class GenericScript(BaseLenderScript):
     def __init__(self, page, business_data: dict, application_url: str = None):
         super().__init__(page, business_data)
         self.application_url = application_url
-        self.client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
     async def apply(self) -> ApplyResult:
         try:
@@ -31,10 +57,32 @@ class GenericScript(BaseLenderScript):
                 shot = await self.screenshot("captcha")
                 return self.result_captcha(shot)
 
-            # Multi-step form handling — attempt up to 5 steps
-            for step in range(5):
-                shot_b64 = await self._get_screenshot_b64()
-                instructions = await self._ai_analyze_and_fill(shot_b64, step)
+            # Multi-step form handling — up to 6 steps
+            for step in range(6):
+                fields = await self._extract_form_fields()
+                page_text = await self._get_page_text()
+
+                # Check for success page
+                if await self.page_contains("thank you", "received", "submitted",
+                                            "confirmation", "we'll be in touch",
+                                            "application number", "application received"):
+                    ref = await self.extract_reference()
+                    result = self.result_ok(ref=ref)
+                    result.screenshot_path = await self.screenshot("success")
+                    return result
+
+                if not fields:
+                    # No form fields found — might be success or a navigation page
+                    if step > 0:
+                        shot = await self.screenshot("no_fields")
+                        return ApplyResult(
+                            success=True, submitted=True,
+                            screenshot_path=shot,
+                            status_message="Application process completed — verify status in screenshot",
+                        )
+                    break
+
+                instructions = await self._llm_fill_instructions(fields, page_text, step)
 
                 if instructions.get("done"):
                     break
@@ -44,38 +92,49 @@ class GenericScript(BaseLenderScript):
                     return self.result_captcha(shot)
 
                 # Execute fill instructions
+                filled = 0
                 for field in instructions.get("fields", []):
                     selector = field.get("selector", "")
                     value = field.get("value", "")
-                    field_type = field.get("type", "text")
-                    if not selector or not value:
+                    ftype = field.get("type", "text")
+                    if not selector or value in (None, "", False):
                         continue
                     try:
                         el = self.page.locator(selector).first
                         if await el.count() == 0:
+                            # Try fallback selectors
                             continue
                         await el.scroll_into_view_if_needed()
-                        if field_type == "select":
-                            await el.select_option(label=str(value))
-                        elif field_type == "checkbox":
+                        if ftype == "select":
+                            try:
+                                await el.select_option(label=str(value))
+                            except Exception:
+                                await el.select_option(value=str(value).lower())
+                        elif ftype == "checkbox":
                             if str(value).lower() in ("true", "yes", "1"):
                                 await el.check()
                         else:
                             await el.fill("")
-                            await el.type(str(value), delay=35)
-                        await asyncio.sleep(0.2)
+                            await el.type(str(value), delay=30)
+                        filled += 1
+                        await asyncio.sleep(0.15)
                     except Exception:
                         continue
 
-                # Submit/continue if instructed
-                if instructions.get("submit"):
+                log.info(f"GenericScript step {step+1}: filled {filled} fields")
+
+                if instructions.get("submit") and filled >= 0:
                     submitted = await self.click_first([
                         "button[type='submit']",
                         "input[type='submit']",
+                        "button:has-text('Submit Application')",
                         "button:has-text('Submit')",
+                        "button:has-text('Apply Now')",
                         "button:has-text('Apply')",
                         "button:has-text('Continue')",
                         "button:has-text('Next')",
+                        "button:has-text('Proceed')",
+                        "a:has-text('Continue')",
                     ])
                     if not submitted:
                         break
@@ -101,19 +160,80 @@ class GenericScript(BaseLenderScript):
             )
 
         except Exception as e:
+            log.error(f"GenericScript error: {e}")
             try:
                 shot = await self.screenshot("exception")
                 return self.result_error(str(e), shot)
             except Exception:
                 return self.result_error(str(e))
 
-    async def _get_screenshot_b64(self) -> str:
-        screenshot_bytes = await self.page.screenshot(full_page=False)
-        return base64.b64encode(screenshot_bytes).decode()
+    # ── DOM field extraction ───────────────────────────────────────────────────
 
-    async def _ai_analyze_and_fill(self, screenshot_b64: str, step: int) -> dict:
-        """Use Claude Vision to understand the current form state and return fill instructions."""
-        business_context = json.dumps({
+    async def _extract_form_fields(self) -> list[dict]:
+        """Extract all visible form fields from the page without taking a screenshot."""
+        try:
+            return await self.page.evaluate("""() => {
+                const fields = [];
+                const els = document.querySelectorAll(
+                    'input:not([type=hidden]):not([type=submit]):not([type=button]):not([type=reset]),' +
+                    'select, textarea'
+                );
+                for (const el of els) {
+                    if (!el.offsetParent) continue;
+                    const rect = el.getBoundingClientRect();
+                    if (rect.width === 0 || rect.height === 0) continue;
+
+                    // Build label
+                    let label = '';
+                    if (el.labels && el.labels.length > 0) {
+                        label = el.labels[0].innerText.trim();
+                    } else if (el.id) {
+                        const lbl = document.querySelector('label[for="' + el.id + '"]');
+                        if (lbl) label = lbl.innerText.trim();
+                    }
+                    if (!label && el.placeholder) label = el.placeholder;
+                    if (!label && el.name) label = el.name;
+                    if (!label && el.getAttribute('aria-label')) label = el.getAttribute('aria-label');
+
+                    // Best selector
+                    let selector = '';
+                    if (el.id) selector = '#' + el.id;
+                    else if (el.name) selector = '[name="' + el.name + '"]';
+                    else if (el.getAttribute('data-testid')) selector = '[data-testid="' + el.getAttribute('data-testid') + '"]';
+                    if (!selector) continue;
+
+                    const field = {
+                        selector,
+                        label: label.replace(/\\n/g, ' ').substring(0, 80),
+                        type: el.tagName === 'SELECT' ? 'select' : (el.type || 'text'),
+                        placeholder: el.placeholder || '',
+                        required: el.required,
+                    };
+                    if (el.tagName === 'SELECT') {
+                        field.options = Array.from(el.options).slice(0, 20).map(o => o.text.trim()).filter(Boolean);
+                    }
+                    fields.push(field);
+                }
+                return fields.slice(0, 30); // cap at 30 fields per step
+            }""")
+        except Exception as e:
+            log.error(f"field extraction error: {e}")
+            return []
+
+    async def _get_page_text(self) -> str:
+        """Get visible page text for context (headings, labels, etc.)."""
+        try:
+            text = await self.page.evaluate("""() => {
+                const el = document.querySelector('main, form, [role=main], body');
+                return (el ? el.innerText : document.body.innerText).substring(0, 800);
+            }""")
+            return text or ""
+        except Exception:
+            return ""
+
+    async def _llm_fill_instructions(self, fields: list[dict], page_text: str, step: int) -> dict:
+        """Ask the LLM (any provider) which fields to fill and with what values."""
+        biz = {
             "legal_name": self.data.get("legal_name"),
             "dba_name": self.data.get("dba_name"),
             "entity_type": self.data.get("entity_type"),
@@ -131,60 +251,38 @@ class GenericScript(BaseLenderScript):
             "owner_phone": self.data.get("owner_phone"),
             "owner_dob": self.data.get("owner_dob"),
             "annual_revenue": self.data.get("annual_revenue"),
+            "monthly_revenue": self.data.get("monthly_revenue"),
             "years_in_business": self.data.get("years_in_business"),
             "industry": self.data.get("industry"),
             "naics_code": self.data.get("naics_code"),
             "bank_name": self.data.get("bank_name"),
-        }, default=str)
+            "avg_bank_balance": self.data.get("average_bank_balance"),
+            "num_employees": self.data.get("num_employees"),
+            "ssn_last4": self.data.get("ssn_last4"),
+        }
+
+        prompt = f"""Step {step + 1} of a business credit application.
+
+Page context: {page_text[:400]}
+
+Visible form fields (JSON):
+{json.dumps(fields, indent=2)}
+
+Business profile (JSON):
+{json.dumps(biz, indent=2, default=str)}
+
+Return fill instructions as JSON."""
 
         try:
-            response = self.client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=1500,
-                messages=[{
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {"type": "base64", "media_type": "image/png", "data": screenshot_b64},
-                        },
-                        {
-                            "type": "text",
-                            "text": f"""This is step {step + 1} of a business credit application form.
-
-Business data: {business_context}
-
-Analyze this form and return JSON instructions:
-{{
-  "done": false,
-  "captcha": false,
-  "submit": true,
-  "fields": [
-    {{
-      "selector": "input[name='company_name']",
-      "value": "Acme LLC",
-      "type": "text"
-    }}
-  ]
-}}
-
-Rules:
-- "done": true if page shows success/confirmation (no more filling needed)
-- "captcha": true if you see a CAPTCHA challenge
-- "submit": true if all fields on this step are filled and ready to proceed
-- Use exact CSS selectors. Prefer: input[name=X], #id, input[placeholder*=X], select[name=X]
-- Types: text, email, tel, select, checkbox, radio, textarea
-- Skip fields where you don't have the data
-- Format phone as (XXX) XXX-XXXX, EIN as XX-XXXXXXX, dates as MM/DD/YYYY
-- Return ONLY the JSON, no other text""",
-                        },
-                    ],
-                }],
+            text = _llm.chat(
+                messages=[{"role": "user", "content": prompt}],
+                system=_FILL_SYSTEM,
+                max_tokens=1000,
             )
-            text = response.content[0].text.strip()
             start, end = text.find("{"), text.rfind("}") + 1
             if start != -1:
                 return json.loads(text[start:end])
-        except Exception:
-            pass
+        except Exception as e:
+            log.error(f"LLM fill error: {e}")
+
         return {"done": False, "captcha": False, "submit": True, "fields": []}

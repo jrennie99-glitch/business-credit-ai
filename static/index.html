@@ -850,7 +850,7 @@ async function loadPayments() {
       <td>${p.due_date||'—'}</td>
       <td>$${(p.amount_due||0).toFixed(2)}</td>
       <td><span class="badge b-${st(p)}">${st(p)}</span></td>
-      <td style="font-size:12px">${p.days_until_due!=null?(p.days_until_due>0?p.days_until_due+'d':'TODAY'):(p.overdue_days||0)+'d LATE':''}</td>
+      <td style="font-size:12px">${p.days_until_due!=null?(p.days_until_due>0?p.days_until_due+'d':'TODAY'):(p.overdue_days>0?p.overdue_days+'d LATE':'')}</td>
       <td><button class="btn btn-sm btn-green" onclick="markPaid(${p.id},${p.amount_due||0})">✓ Mark Paid</button></td>
     </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted)">No payments scheduled</td></tr>';
   } catch(e) { console.error('payments:', e); }

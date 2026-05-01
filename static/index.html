@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Business Credit AI — God Mode</title>
+<style>
+:root{--bg:#08080f;--s1:#10101a;--s2:#181824;--s3:#202030;--border:#252538;--accent:#7c6ff7;--accent2:#00d4aa;--gold:#ffd700;--red:#ff4466;--green:#00d4aa;--text:#e8e8f8;--muted:#7777aa;--r:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+.layout{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:220px;background:var(--s1);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.logo{padding:18px 16px;border-bottom:1px solid var(--border)}
+.logo h1{font-size:15px;font-weight:700;color:var(--accent)}
+.logo p{font-size:10px;color:var(--gold);margin-top:2px;letter-spacing:1.5px;text-transform:uppercase}
+.nav{flex:1;padding:10px 8px;overflow-y:auto}
+.nav-section{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;padding:8px 8px 4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:13px;color:var(--muted);transition:all .15s;margin-bottom:1px}
+.nav-item:hover,.nav-item.active{background:var(--s2);color:var(--text)}
+.nav-item.active{color:var(--accent)}
+.nav-item .icon{font-size:15px;width:18px;text-align:center}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{padding:14px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--s1);gap:12px}
+.topbar h2{font-size:16px;font-weight:600;white-space:nowrap}
+.topbar-right{display:flex;gap:8px;align-items:center}
+.content{flex:1;overflow-y:auto;padding:20px}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:18px;margin-bottom:14px}
+.card-title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;font-weight:600}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:18px}
+.stat{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:14px}
+.stat-val{font-size:26px;font-weight:700;color:var(--accent)}
+.stat-label{font-size:11px;color:var(--muted);margin-top:3px}
+.stat.gold .stat-val{color:var(--gold)}
+.stat.green .stat-val{color:var(--green)}
+.stat.red .stat-val{color:var(--red)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:8px 12px;color:var(--muted);font-weight:500;border-bottom:1px solid var(--border);font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:hover td{background:var(--s2)}
+.badge{display:inline-block;padding:2px 8px;border-radius:100px;font-size:10px;font-weight:600}
+.b-starter{background:#0d200d;color:#4caf50}.b-builder{background:#0d1525;color:#42a5f5}
+.b-established{background:#1a0d2a;color:#ab47bc}.b-advanced{background:#251508;color:#ff9800}
+.b-premium{background:#252500;color:var(--gold)}.b-foundation{background:#151520;color:var(--muted)}
+.b-submitted{background:#0a1f1a;color:var(--green)}.b-approved{background:#0d200d;color:#4caf50}
+.b-denied{background:#200d0d;color:var(--red)}.b-error{background:#200d0d;color:#ff6b6b}
+.b-disqualified{background:#1a1a1a;color:#555}.b-queued{background:#151520;color:var(--muted)}
+.b-qualified{background:#0d1525;color:#42a5f5}.b-manual_required{background:#252508;color:#ffcc02}
+.b-overdue{background:#200d0d;color:var(--red)}.b-due_soon{background:#252008;color:#ffcc02}
+.b-upcoming{background:#0d151f;color:#42a5f5}.b-paid{background:#0d200d;color:#4caf50}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.fg{display:flex;flex-direction:column;gap:5px}
+.fg label{font-size:11px;color:var(--muted);font-weight:500}
+.fg input,.fg select,.fg textarea{background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:9px 11px;color:var(--text);font-size:13px;outline:none;transition:border-color .15s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--accent)}
+.fg select option{background:var(--s1)}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:7px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{opacity:.9}
+.btn-gold{background:linear-gradient(135deg,#ffd700,#ffaa00);color:#000}.btn-gold:hover{opacity:.9}
+.btn-green{background:var(--green);color:#000}
+.btn-red{background:var(--red);color:#fff}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.btn-sm{padding:5px 12px;font-size:11px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.alert{padding:10px 14px;border-radius:7px;font-size:13px;margin-bottom:12px}
+.alert-ok{background:#0d200d;border:1px solid #1a5030;color:#4caf50}
+.alert-err{background:#200d0d;border:1px solid #501a1a;color:#ff6b6b}
+.alert-info{background:#0d0d20;border:1px solid #1a1a50;color:#7ca0ff}
+.alert-warn{background:#201500;border:1px solid #503500;color:#ffaa00}
+.spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 130px)}
+.chat-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:85%;padding:12px 16px;border-radius:12px;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.msg.user{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:3px}
+.msg.ai{background:var(--s2);align-self:flex-start;border-bottom-left-radius:3px}
+.msg.brain{background:linear-gradient(135deg,#1a0d3a,#0d1a2a);border:1px solid var(--accent);align-self:flex-start;border-bottom-left-radius:3px}
+.msg.system{background:var(--s3);color:var(--muted);font-size:11px;align-self:center;border-radius:6px;padding:6px 12px}
+.chat-input-area{padding:14px;border-top:1px solid var(--border);display:flex;gap:10px}
+.chat-input{flex:1;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:13px;outline:none;resize:none}
+.chat-input:focus{border-color:var(--accent)}
+.auth-box{background:linear-gradient(135deg,#200d2a,#0d1a0d);border:2px solid var(--gold);border-radius:var(--r);padding:18px;margin:10px 0}
+.auth-box h3{color:var(--gold);margin-bottom:8px;font-size:14px}
+.auth-box p{font-size:13px;color:var(--text);margin-bottom:14px}
+.auth-details{background:var(--s3);border-radius:6px;padding:12px;margin-bottom:14px;font-size:12px}
+.auth-details ul{margin-left:16px;margin-top:6px;color:var(--muted)}
+.auth-buttons{display:flex;gap:10px}
+.progress-track{display:flex;gap:4px;margin-bottom:20px;flex-wrap:wrap}
+.tier-step{flex:1;min-width:80px;padding:10px 8px;border-radius:8px;border:1px solid var(--border);text-align:center;font-size:11px;transition:all .2s}
+.tier-step.active{border-color:var(--accent);background:var(--s2)}
+.tier-step.complete{border-color:var(--green);background:#0d200d}
+.tier-step.locked{opacity:.4}
+.tier-step .t-name{font-weight:700;font-size:12px;margin-bottom:2px}
+.tier-step .t-desc{color:var(--muted);font-size:10px}
+.score-ring{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.score-val{font-size:24px;font-weight:700}
+.score-bar{flex:1;background:var(--s3);border-radius:100px;height:8px;overflow:hidden}
+.score-fill{height:100%;border-radius:100px;transition:width .5s}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.section-header h3{font-size:15px;font-weight:600}
+.prob-bar{display:flex;align-items:center;gap:8px}
+.prob-text{font-size:11px;font-weight:700;width:34px}
+.prog-bar{flex:1;background:var(--s3);border-radius:100px;height:5px;overflow:hidden}
+.prog-fill{height:100%;border-radius:100px;transition:width .3s}
+.lender-row td:first-child{font-weight:600}
+.pull-soft{font-size:10px;color:var(--green)}
+.pull-hard{font-size:10px;color:var(--red)}
+.bureau-dots span{display:inline-block;padding:1px 5px;border-radius:3px;font-size:10px;margin:0 1px}
+.dnb{background:#0d1a40;color:#42a5f5}.exp{background:#0d200d;color:#4caf50}.eq{background:#200d0d;color:#ff7043}
+.checklist-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:7px;margin-bottom:6px;font-size:13px}
+.checklist-item.pass{background:#0d200d;border:1px solid #1a5030}
+.checklist-item.fail{background:#1a1a1a;border:1px solid var(--border);color:var(--muted)}
+.tab-bar{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:18px}
+.tab{padding:8px 16px;font-size:13px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.payment-row.overdue td{color:var(--red)}
+.payment-row.due_soon td{color:#ffcc02}
+[id^=page-]{display:none}
+#page-dashboard{display:block}
+.god-banner{background:linear-gradient(135deg,#1a1030,#0a1520);border:1px solid var(--accent);border-radius:var(--r);padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:16px}
+.god-banner .icon{font-size:36px}
+.god-banner h2{color:var(--gold);font-size:17px;margin-bottom:3px}
+.god-banner p{color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar">
+  <div class="logo"><h1>💳 Business Credit AI</h1><p>⚡ God Mode</p></div>
+  <div class="nav">
+    <div class="nav-section">Overview</div>
+    <div class="nav-item active" onclick="nav('dashboard')" id="nav-dashboard"><span class="icon">📊</span>Dashboard</div>
+    <div class="nav-item" onclick="nav('credit')" id="nav-credit"><span class="icon">📈</span>Credit Health</div>
+    <div class="nav-item" onclick="nav('progression')" id="nav-progression"><span class="icon">🎯</span>Progression</div>
+    <div class="nav-section">Business</div>
+    <div class="nav-item" onclick="nav('business')" id="nav-business"><span class="icon">🏢</span>Business Profile</div>
+    <div class="nav-item" onclick="nav('accounts')" id="nav-accounts"><span class="icon">💳</span>Active Accounts</div>
+    <div class="nav-item" onclick="nav('payments')" id="nav-payments"><span class="icon">📅</span>Payments</div>
+    <div class="nav-section">Credit Building</div>
+    <div class="nav-item" onclick="nav('qualify')" id="nav-qualify"><span class="icon">✅</span>Qualify Lenders</div>
+    <div class="nav-item" onclick="nav('lenders')" id="nav-lenders"><span class="icon">🏦</span>Lender Database</div>
+    <div class="nav-item" onclick="nav('applications')" id="nav-applications"><span class="icon">📋</span>Applications</div>
+    <div class="nav-section">AI</div>
+    <div class="nav-item" onclick="nav('brain')" id="nav-brain"><span class="icon">🧠</span>Credit Brain</div>
+    <div class="nav-item" onclick="nav('advisor')" id="nav-advisor"><span class="icon">💬</span>AI Advisor</div>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="topbar">
+    <h2 id="page-title">Dashboard</h2>
+    <div class="topbar-right">
+      <select id="biz-sel" onchange="onBizSelect()" style="background:var(--s2);border:1px solid var(--border);color:var(--text);padding:7px 11px;border-radius:7px;font-size:12px;outline:none;max-width:200px">
+        <option value="">Select Business...</option>
+      </select>
+      <button class="btn btn-sm btn-outline" onclick="nav('business')">+ Add Business</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+<!-- DASHBOARD -->
+<div id="page-dashboard">
+  <div class="god-banner">
+    <span class="icon">⚡</span>
+    <div>
+      <h2>Business Credit AI — God Mode Active</h2>
+      <p>Autonomous qualification engine · Smart application ordering · Payment monitoring · Credit progression · Bureau tracking</p>
+    </div>
+  </div>
+  <div class="stats-grid" id="dash-stats">
+    <div class="stat"><div class="stat-val" id="s-lenders">—</div><div class="stat-label">Lenders in DB</div></div>
+    <div class="stat"><div class="stat-val" id="s-apps">—</div><div class="stat-label">Applications</div></div>
+    <div class="stat green"><div class="stat-val" id="s-accounts">—</div><div class="stat-label">Active Accounts</div></div>
+    <div class="stat gold"><div class="stat-val" id="s-credit">$0</div><div class="stat-label">Total Credit</div></div>
+    <div class="stat red"><div class="stat-val" id="s-overdue">0</div><div class="stat-label">Overdue Payments</div></div>
+    <div class="stat"><div class="stat-val" id="s-util">0%</div><div class="stat-label">Utilization</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Recent Applications</div>
+    <table><thead><tr><th>Lender</th><th>Tier</th><th>Status</th><th>Qual Score</th><th>Reference</th><th>Date</th></tr></thead>
+    <tbody id="recent-apps"></tbody></table>
+  </div>
+  <div class="card" id="payment-alert-card" style="display:none">
+    <div class="card-title" style="color:var(--red)">⚠️ Payment Alerts</div>
+    <div id="payment-alerts"></div>
+  </div>
+</div>
+
+<!-- CREDIT HEALTH -->
+<div id="page-credit">
+  <div class="section-header">
+    <h3>Credit Health Report</h3>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sm btn-outline" onclick="loadCredit()">🔄 Refresh</button>
+      <button class="btn btn-sm btn-primary" onclick="nav('business');setTimeout(()=>document.querySelector(\'[id^=f-dnb]\')?.focus(),300)">📊 Update Scores</button>
+    </div>
+  </div>
+  <div id="credit-content"><div style="text-align:center;padding:40px;color:var(--muted)">Select a business to view credit report</div></div>
+</div>
+
+<!-- PROGRESSION -->
+<div id="page-progression">
+  <div class="section-header"><h3>Credit Tier Progression</h3><button class="btn btn-sm btn-outline" onclick="loadProgression()">🔄 Refresh</button></div>
+  <div id="prog-content"><div style="text-align:center;padding:40px;color:var(--muted)">Select a business to view progression</div></div>
+</div>
+
+<!-- BUSINESS PROFILE -->
+<div id="page-business">
+  <div class="card">
+    <div class="card-title">Legal & Entity Information</div>
+    <div class="form-grid">
+      <div class="fg"><label>Legal Business Name *</label><input id="f-legal_name" placeholder="Acme LLC"/></div>
+      <div class="fg"><label>DBA Name</label><input id="f-dba_name" placeholder="Acme Trading"/></div>
+      <div class="fg"><label>Entity Type</label><select id="f-entity_type"><option>LLC</option><option>Corporation</option><option>S-Corp</option><option>Sole Proprietorship</option><option>Partnership</option></select></div>
+      <div class="fg"><label>State Incorporated</label><input id="f-state_of_incorporation" placeholder="DE" maxlength="2"/></div>
+      <div class="fg"><label>Date Incorporated</label><input id="f-date_of_incorporation" placeholder="01/15/2023"/></div>
+      <div class="fg"><label>EIN (Tax ID) *</label><input id="f-ein" placeholder="12-3456789"/></div>
+      <div class="fg"><label>DUNS Number</label><input id="f-duns_number" placeholder="12-345-6789"/></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Business Address & Contact</div>
+    <div class="form-grid">
+      <div class="fg"><label>Street Address *</label><input id="f-business_address" placeholder="123 Main St Ste 100"/></div>
+      <div class="fg"><label>City *</label><input id="f-business_city" placeholder="Miami"/></div>
+      <div class="fg"><label>State *</label><input id="f-business_state" placeholder="FL" maxlength="2"/></div>
+      <div class="fg"><label>ZIP *</label><input id="f-business_zip" placeholder="33101"/></div>
+      <div class="fg"><label>Business Phone *</label><input id="f-business_phone" placeholder="(305) 555-0100"/></div>
+      <div class="fg"><label>Business Email *</label><input id="f-business_email" placeholder="info@yourbiz.com"/></div>
+      <div class="fg"><label>Website</label><input id="f-website" placeholder="https://yourbiz.com"/></div>
+      <div class="fg"><label>Industry</label><input id="f-industry" placeholder="Retail / E-Commerce"/></div>
+      <div class="fg"><label>NAICS Code</label><input id="f-naics_code" placeholder="454110"/></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Owner / Principal</div>
+    <div class="form-grid">
+      <div class="fg"><label>First Name *</label><input id="f-owner_first_name" placeholder="John"/></div>
+      <div class="fg"><label>Last Name *</label><input id="f-owner_last_name" placeholder="Smith"/></div>
+      <div class="fg"><label>Date of Birth</label><input id="f-owner_dob" placeholder="MM/DD/YYYY"/></div>
+      <div class="fg"><label>SSN (encrypted)</label><input id="f-owner_ssn" type="password" placeholder="XXX-XX-XXXX"/></div>
+      <div class="fg"><label>Owner Phone *</label><input id="f-owner_phone" placeholder="(305) 555-0101"/></div>
+      <div class="fg"><label>Owner Email *</label><input id="f-owner_email" placeholder="john@yourbiz.com"/></div>
+      <div class="fg"><label>Home Address</label><input id="f-owner_address" placeholder="456 Oak Ave"/></div>
+      <div class="fg"><label>Home City</label><input id="f-owner_city" placeholder="Miami"/></div>
+      <div class="fg"><label>Home State</label><input id="f-owner_state" placeholder="FL" maxlength="2"/></div>
+      <div class="fg"><label>Home ZIP</label><input id="f-owner_zip" placeholder="33102"/></div>
+      <div class="fg"><label>Ownership %</label><input id="f-owner_percentage" type="number" value="100" min="1" max="100"/></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Financial Information</div>
+    <div class="form-grid">
+      <div class="fg"><label>Annual Revenue ($)</label><input id="f-annual_revenue" type="number" placeholder="0"/></div>
+      <div class="fg"><label>Monthly Revenue ($)</label><input id="f-monthly_revenue" type="number" placeholder="0"/></div>
+      <div class="fg"><label>Years in Business</label><input id="f-years_in_business" type="number" step="0.1" placeholder="0.5"/></div>
+      <div class="fg"><label>Employees</label><input id="f-num_employees" type="number" value="1"/></div>
+      <div class="fg"><label>Has Business Checking</label><select id="f-business_checking_account"><option value="true">Yes</option><option value="false">No</option></select></div>
+      <div class="fg"><label>Bank Name</label><input id="f-bank_name" placeholder="Chase"/></div>
+      <div class="fg"><label>Avg Bank Balance ($)</label><input id="f-average_bank_balance" type="number" placeholder="5000"/></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Credit Scores (update from Nav, D&B, Experian)</div>
+    <div class="form-grid">
+      <div class="fg"><label>Personal Credit Score</label><input id="f-personal_credit_score" type="number" placeholder="720" min="300" max="850"/></div>
+      <div class="fg"><label>D&B PAYDEX (0-100)</label><input id="f-dnb_paydex" type="number" placeholder="0" min="0" max="100"/></div>
+      <div class="fg"><label>Experian Intelliscore (0-100)</label><input id="f-experian_intelliscore" type="number" placeholder="0" min="0" max="100"/></div>
+      <div class="fg"><label>Equifax Business (0-100)</label><input id="f-equifax_business_score" type="number" placeholder="0" min="0" max="100"/></div>
+      <div class="fg"><label>Active Tradelines</label><input id="f-existing_tradelines" type="number" placeholder="0"/></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;margin-top:6px">
+    <button class="btn btn-primary" onclick="saveBusiness()">💾 Save Profile</button>
+    <button class="btn btn-outline" onclick="loadBusinessForm()">🔄 Load Saved</button>
+  </div>
+  <div id="biz-alert" style="margin-top:14px"></div>
+</div>
+
+<!-- ACTIVE ACCOUNTS -->
+<div id="page-accounts">
+  <div class="section-header"><h3>Active Credit Accounts</h3><button class="btn btn-sm btn-outline" onclick="loadAccounts()">🔄 Refresh</button></div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table><thead><tr><th>Account</th><th>Type</th><th>Limit</th><th>Balance</th><th>Utilization</th><th>On-Time</th><th>Reports To</th><th>Next Due</th><th>Actions</th></tr></thead>
+    <tbody id="accounts-body"><tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted)">No accounts yet</td></tr></tbody></table>
+  </div>
+</div>
+
+<!-- PAYMENTS -->
+<div id="page-payments">
+  <div class="section-header">
+    <h3>Payment Calendar</h3>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sm btn-outline" onclick="loadPayments()">🔄 Refresh</button>
+      <button class="btn btn-sm btn-green" onclick="triggerPaymentCheck()">⚡ Run Check Now</button>
+    </div>
+  </div>
+  <div id="payment-summary-cards" class="stats-grid"></div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table><thead><tr><th>Account</th><th>Due Date</th><th>Amount</th><th>Status</th><th>Days Until</th><th>Actions</th></tr></thead>
+    <tbody id="payments-body"></tbody></table>
+  </div>
+</div>
+
+<!-- QUALIFY LENDERS -->
+<div id="page-qualify">
+  <div class="god-banner" style="margin-bottom:20px">
+    <span class="icon">🧠</span>
+    <div>
+      <h2>Smart Qualification Engine</h2>
+      <p>Never waste a hard pull. The AI checks every lender against your exact profile before applying.</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Campaign Settings</div>
+    <div class="form-grid">
+      <div class="fg"><label>Max Applications (0=all)</label><input id="camp-max" type="number" value="0" min="0"/></div>
+      <div class="fg"><label>Category Filter</label>
+        <select id="camp-cat">
+          <option value="">All Categories</option>
+          <option value="net30">Net-30 Vendors Only (Safest)</option>
+          <option value="credit_card">Credit Cards Only</option>
+          <option value="line_of_credit">Lines of Credit Only</option>
+          <option value="marketplace">Marketplaces Only</option>
+        </select>
+      </div>
+      <div class="fg"><label>Tier Filter</label>
+        <select id="camp-tier">
+          <option value="">All Tiers</option>
+          <option value="starter">Starter</option>
+          <option value="builder">Builder</option>
+          <option value="established">Established</option>
+          <option value="advanced">Advanced</option>
+          <option value="premium">Premium</option>
+        </select>
+      </div>
+      <div class="fg"><label>Include Conditional (Risky)</label>
+        <select id="camp-conditional"><option value="false">No — Qualified Only</option><option value="true">Yes — Include Conditional</option></select>
+      </div>
+      <div class="fg"><label>Mode</label>
+        <select id="camp-mode">
+          <option value="true">🟡 Dry Run — Score Only, Don't Submit</option>
+          <option value="false">🔴 LIVE — Actually Submit Applications</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn btn-outline" onclick="runQualify()">🔍 Score Lenders Only</button>
+      <button class="btn btn-gold" onclick="launchCampaign()" id="launch-btn">⚡ Launch Campaign</button>
+    </div>
+  </div>
+
+  <div id="qual-results" style="display:none">
+    <div class="tab-bar">
+      <div class="tab active" onclick="showQualTab('qualified')" id="qtab-qualified">✅ Qualified (<span id="qcount-qualified">0</span>)</div>
+      <div class="tab" onclick="showQualTab('conditional')" id="qtab-conditional">⚠️ Conditional (<span id="qcount-conditional">0</span>)</div>
+      <div class="tab" onclick="showQualTab('disqualified')" id="qtab-disqualified">❌ Disqualified (<span id="qcount-disqualified">0</span>)</div>
+    </div>
+    <div id="qual-qualified-content" class="card" style="padding:0;overflow:hidden"></div>
+    <div id="qual-conditional-content" class="card" style="padding:0;overflow:hidden;display:none"></div>
+    <div id="qual-disqualified-content" class="card" style="padding:0;overflow:hidden;display:none"></div>
+  </div>
+
+  <div id="campaign-status" style="display:none" class="card">
+    <div class="card-title">Campaign Status</div>
+    <div id="campaign-body"></div>
+  </div>
+</div>
+
+<!-- LENDER DATABASE -->
+<div id="page-lenders">
+  <div class="section-header">
+    <h3 id="lender-count">All Lenders</h3>
+    <div style="display:flex;gap:8px">
+      <select id="l-cat" onchange="filterLenders()" style="background:var(--s2);border:1px solid var(--border);color:var(--text);padding:7px 11px;border-radius:7px;font-size:12px;outline:none">
+        <option value="">All Categories</option>
+        <option value="net30">Net-30</option><option value="credit_card">Credit Cards</option>
+        <option value="fuel_card">Fuel Cards</option><option value="line_of_credit">Lines of Credit</option>
+        <option value="loan">Loans</option><option value="marketplace">Marketplaces</option><option value="sba">SBA</option>
+      </select>
+      <select id="l-tier" onchange="filterLenders()" style="background:var(--s2);border:1px solid var(--border);color:var(--text);padding:7px 11px;border-radius:7px;font-size:12px;outline:none">
+        <option value="">All Tiers</option>
+        <option value="starter">Starter</option><option value="builder">Builder</option>
+        <option value="established">Established</option><option value="advanced">Advanced</option><option value="premium">Premium</option>
+      </select>
+      <button class="btn btn-sm btn-outline" onclick="loadLenders()">🔄 Refresh</button>
+    </div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table><thead><tr><th>Lender</th><th>Tier</th><th>Max Credit</th><th>Min Score</th><th>Min Age</th><th>Pull</th><th>Reports To</th><th>Time</th></tr></thead>
+    <tbody id="lenders-body"></tbody></table>
+  </div>
+</div>
+
+<!-- APPLICATIONS -->
+<div id="page-applications">
+  <div class="section-header"><h3>Application Tracker</h3><button class="btn btn-sm btn-outline" onclick="loadApplications()">🔄 Refresh</button></div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table><thead><tr><th>Lender</th><th>Tier</th><th>Status</th><th>Qual Score</th><th>Reference</th><th>Notes</th><th>Submitted</th></tr></thead>
+    <tbody id="apps-body"></tbody></table>
+  </div>
+</div>
+
+<!-- BRAIN -->
+<div id="page-brain">
+  <div class="god-banner">
+    <span class="icon">🧠</span>
+    <div>
+      <h2>Credit Brain — Autonomous AI Agent</h2>
+      <p>Tell it what you want. It analyzes your profile, qualifies lenders, builds a plan, and asks for your approval before applying.</p>
+    </div>
+  </div>
+  <div class="chat-wrap" style="height:calc(100vh - 260px)">
+    <div class="chat-msgs" id="brain-msgs">
+      <div class="msg system">Brain loaded — has complete business credit knowledge. Select your business above then start talking.</div>
+      <div class="msg brain">🧠 I'm your Credit Brain. I know everything about building business credit from zero to seven figures.
+
+Tell me what you need:
+• "Analyze my business and tell me what to do"
+• "What lenders can I apply to right now?"
+• "Build me a 12-month credit plan"
+• "Check my payment health"
+• "What's stopping me from getting better credit?"
+
+I'll think through your situation, qualify every lender, and present a full action plan. You authorize before anything happens.</div>
+    </div>
+    <div id="brain-auth-area"></div>
+    <div class="chat-input-area">
+      <textarea class="chat-input" id="brain-input" rows="2" placeholder="Tell the Brain what you want to accomplish..." onkeydown="brainKeydown(event)"></textarea>
+      <button class="btn btn-primary" onclick="sendBrain()">Send →</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI ADVISOR (regular chat) -->
+<div id="page-advisor">
+  <div class="chat-wrap">
+    <div class="chat-msgs" id="advisor-msgs">
+      <div class="msg ai">👋 I'm your Business Credit Advisor. Ask me anything about business credit, lender requirements, approval strategies, or how to build from zero.
+
+Select your business above for personalized advice based on your actual profile.</div>
+    </div>
+    <div class="chat-input-area">
+      <textarea class="chat-input" id="advisor-input" rows="2" placeholder="Ask about business credit strategies..." onkeydown="advisorKeydown(event)"></textarea>
+      <button class="btn btn-primary" onclick="sendAdvisor()">Send →</button>
+    </div>
+  </div>
+</div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /layout -->
+
+<script>
+const API = '';
+let currentBiz = null;
+let allLenders = [];
+let qualData = null;
+let brainSession = null;
+let advisorHistory = [];
+
+async function api(path, opts={}) {
+  const r = await fetch(API+path,{headers:{'Content-Type':'application/json'},...opts});
+  if(!r.ok){const e=await r.json().catch(()=>({detail:r.statusText}));throw new Error(e.detail||r.statusText);}
+  return r.json();
+}
+
+function nav(name) {
+  document.querySelectorAll('[id^=page-]').forEach(el=>el.style.display='none');
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
+  document.getElementById('page-'+name).style.display='block';
+  document.getElementById('nav-'+name)?.classList.add('active');
+  const titles={dashboard:'Dashboard',credit:'Credit Health',progression:'Progression',business:'Business Profile',accounts:'Active Accounts',payments:'Payment Calendar',qualify:'Qualify Lenders',lenders:'Lender Database',applications:'Applications',brain:'Credit Brain',advisor:'AI Advisor'};
+  document.getElementById('page-title').textContent=titles[name]||name;
+  if(name==='dashboard')loadDashboard();
+  if(name==='lenders')loadLenders();
+  if(name==='applications')loadApplications();
+  if(name==='credit')loadCredit();
+  if(name==='progression')loadProgression();
+  if(name==='accounts')loadAccounts();
+  if(name==='payments')loadPayments();
+}
+
+async function loadBizList(){
+  try{
+    const bizs=await api('/api/business');
+    const sel=document.getElementById('biz-sel');
+    sel.innerHTML='<option value="">Select Business...</option>';
+    bizs.forEach(b=>{const o=document.createElement('option');o.value=b.id;o.textContent=b.legal_name+(b.current_tier?' ('+b.current_tier+')':'');sel.appendChild(o);});
+    if(bizs.length>0){sel.value=bizs[0].id;onBizSelect();}
+  }catch(e){console.error(e);}
+}
+
+function onBizSelect(){
+  currentBiz=document.getElementById('biz-sel').value?parseInt(document.getElementById('biz-sel').value):null;
+  const p=document.querySelector('[id^=page-][style*="block"]')?.id?.replace('page-','');
+  if(p&&['dashboard','credit','progression','qualify','applications','accounts','payments'].includes(p)){nav(p);}
+}
+
+// ── Dashboard ────────────────────────────────────────────────────────────────
+async function loadDashboard(){
+  try{
+    const url=currentBiz?`/api/stats?business_id=${currentBiz}`:'/api/stats';
+    const s=await api(url);
+    document.getElementById('s-lenders').textContent=s.total_lenders;
+    document.getElementById('s-apps').textContent=s.total_applications;
+    document.getElementById('s-accounts').textContent=s.active_accounts;
+    document.getElementById('s-credit').textContent='$'+(s.total_credit_available>=1e6?(s.total_credit_available/1e6).toFixed(1)+'M':s.total_credit_available>=1e3?(s.total_credit_available/1e3).toFixed(0)+'K':s.total_credit_available.toFixed(0));
+    document.getElementById('s-overdue').textContent=s.overdue_payments;
+    document.getElementById('s-util').textContent=s.overall_utilization+'%';
+    const apps=await api('/api/applications'+(currentBiz?`?business_id=${currentBiz}`:''));
+    const tb=document.getElementById('recent-apps');
+    tb.innerHTML=apps.slice(0,15).map(a=>`<tr>
+      <td><strong>${a.lender_name}</strong></td>
+      <td><span class="badge b-${a.lender_tier}">${a.lender_tier||'?'}</span></td>
+      <td><span class="badge b-${(a.status||'').replace('ApplicationStatus.','')}">${(a.status||'').replace('ApplicationStatus.','')}</span></td>
+      <td style="font-size:11px">${a.qualification_score?a.qualification_score.toFixed(0)+'%':''}</td>
+      <td style="color:var(--muted);font-size:11px">${a.reference_number||'—'}</td>
+      <td style="color:var(--muted);font-size:11px">${a.submitted_at?new Date(a.submitted_at).toLocaleDateString():'—'}</td>
+    </tr>`).join('')||'<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted)">No applications yet — run a campaign to begin</td></tr>';
+
+    // Payment alerts
+    if(currentBiz){
+      const psummary=await api(`/api/payments/summary/${currentBiz}`);
+      if(psummary.overdue_count>0||psummary.due_soon_count>0){
+        document.getElementById('payment-alert-card').style.display='block';
+        document.getElementById('payment-alerts').innerHTML=`
+          ${psummary.overdue_count>0?`<div class="alert alert-err">🚨 ${psummary.overdue_count} OVERDUE payment(s) — $${psummary.overdue_amount.toFixed(2)} total. Pay NOW to protect your credit scores.</div>`:''}
+          ${psummary.due_soon_count>0?`<div class="alert alert-warn">⚠️ ${psummary.due_soon_count} payment(s) due soon. <button class="btn btn-sm btn-outline" onclick="nav('payments')">View Payments →</button></div>`:''}
+        `;
+      }
+    }
+  }catch(e){console.error(e);}
+}
+
+// ── Credit Health ─────────────────────────────────────────────────────────────
+async function loadCredit(){
+  if(!currentBiz){document.getElementById('credit-content').innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)">Select a business first</div>';return;}
+  document.getElementById('credit-content').innerHTML='<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
+  try{
+    const r=await api(`/api/credit/report/${currentBiz}`);
+    document.getElementById('credit-content').innerHTML=renderCreditReport(r);
+  }catch(e){document.getElementById('credit-content').innerHTML=`<div class="alert alert-err">${e.message}</div>`;}
+}
+
+function renderCreditReport(r){
+  const scoreBar=(val,max,color)=>`<div class="score-ring"><div class="score-val" style="color:${color}">${val||'—'}</div><div class="score-bar"><div class="score-fill" style="width:${val?Math.round(val/max*100):0}%;background:${color}"></div></div><span style="font-size:11px;color:var(--muted)">${val?Math.round(val/max*100)+'%':'N/A'}</span></div>`;
+  const scoreColor=(v,low,mid)=>!v?'var(--muted)':v>=mid?'var(--green)':v>=low?'var(--gold)':'var(--red)';
+  return `
+  <div class="stats-grid">
+    <div class="stat"><div class="stat-val" style="color:${scoreColor(r.scores.dnb_paydex?.value,50,75)}">${r.scores.dnb_paydex?.value||'—'}</div><div class="stat-label">D&B PAYDEX (target: 80+)</div></div>
+    <div class="stat"><div class="stat-val" style="color:${scoreColor(r.scores.experian_intelliscore?.value,50,70)}">${r.scores.experian_intelliscore?.value||'—'}</div><div class="stat-label">Experian Intelliscore</div></div>
+    <div class="stat"><div class="stat-val" style="color:${scoreColor(r.scores.equifax_business?.value,50,70)}">${r.scores.equifax_business?.value||'—'}</div><div class="stat-label">Equifax Business</div></div>
+    <div class="stat"><div class="stat-val" style="color:${scoreColor(r.scores.personal?.value,620,700)}">${r.scores.personal?.value||'—'}</div><div class="stat-label">Personal Credit</div></div>
+    <div class="stat green"><div class="stat-val">${r.accounts.active}</div><div class="stat-label">Active Accounts</div></div>
+    <div class="stat gold"><div class="stat-val">$${(r.accounts.total_credit_limit||0).toLocaleString()}</div><div class="stat-label">Total Credit Limit</div></div>
+    <div class="stat"><div class="stat-val" style="color:${r.accounts.utilization_pct<15?'var(--green)':r.accounts.utilization_pct<30?'var(--gold)':'var(--red)'}">${r.accounts.utilization_pct||0}%</div><div class="stat-label">Utilization</div></div>
+    <div class="stat"><div class="stat-val" style="color:${r.payments.on_time_rate===100?'var(--green)':'var(--red)'}">${r.payments.on_time_rate||100}%</div><div class="stat-label">On-Time Payments</div></div>
+  </div>
+  <div class="card"><div class="card-title">Bureau Coverage (accounts reporting)</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+      <div style="text-align:center;padding:14px;background:var(--s2);border-radius:8px"><div style="font-size:22px;color:#42a5f5;font-weight:700">${r.bureau_coverage.dnb}</div><div style="font-size:11px;color:var(--muted)">D&B Reporters</div></div>
+      <div style="text-align:center;padding:14px;background:var(--s2);border-radius:8px"><div style="font-size:22px;color:#4caf50;font-weight:700">${r.bureau_coverage.experian}</div><div style="font-size:11px;color:var(--muted)">Experian Reporters</div></div>
+      <div style="text-align:center;padding:14px;background:var(--s2);border-radius:8px"><div style="font-size:22px;color:#ff7043;font-weight:700">${r.bureau_coverage.equifax}</div><div style="font-size:11px;color:var(--muted)">Equifax Reporters</div></div>
+    </div>
+  </div>
+  <div class="card"><div class="card-title">📋 Recommendations</div>
+    ${(r.recommendations||[]).map(rec=>`<div style="padding:8px;font-size:13px;border-bottom:1px solid var(--border)">${rec}</div>`).join('')}
+  </div>`;
+}
+
+// ── Progression ────────────────────────────────────────────────────────────────
+async function loadProgression(){
+  if(!currentBiz){document.getElementById('prog-content').innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)">Select a business first</div>';return;}
+  try{
+    const r=await api(`/api/progression/${currentBiz}`);
+    document.getElementById('prog-content').innerHTML=renderProgression(r);
+  }catch(e){document.getElementById('prog-content').innerHTML=`<div class="alert alert-err">${e.message}</div>`;}
+}
+
+function renderProgression(r){
+  const tiers=['foundation','starter','builder','established','advanced','premium'];
+  const current=String(r.current_tier).toLowerCase().replace('credittier.','');
+  const ci=tiers.indexOf(current);
+  return `
+  <div class="progress-track">
+    ${tiers.map((t,i)=>`<div class="tier-step ${i<ci?'complete':i===ci?'active':'locked'}">
+      <div class="t-name">${i<ci?'✓ ':i===ci?'▶ ':''}${t.charAt(0).toUpperCase()+t.slice(1)}</div>
+      <div class="t-desc">${['EIN+Bank','Net-30','Soft Cards','Biz Cards','LOC/Loans','SBA'][i]}</div>
+    </div>`).join('')}
+  </div>
+  <div class="card"><div class="card-title">Current: ${r.tier_label||current}</div>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:14px">${r.tier_description||''}</p>
+    <div>${(r.checklist||[]).map(c=>`<div class="checklist-item ${c.passed?'pass':'fail'}">${c.passed?'✅':'⭕'} <span>${c.item}</span></div>`).join('')}</div>
+  </div>
+  ${r.gaps&&r.gaps.length>0?`<div class="card"><div class="card-title">⭕ To Advance to ${r.next_tier||'next tier'}</div>
+    ${r.gaps.map(g=>`<div style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px"><strong>${g.requirement}</strong> — ${g.current}</div>`).join('')}
+  </div>`:''}
+  ${r.advanced_to?`<div class="alert alert-ok">🎉 Advanced to ${r.advanced_to}! New lenders unlocked: ${(r.newly_unlocked_lenders||[]).join(', ')}</div>`:''}`;
+}
+
+// ── Qualify & Campaign ─────────────────────────────────────────────────────────
+async function runQualify(){
+  if(!currentBiz)return alert('Select a business first');
+  document.getElementById('qual-results').style.display='block';
+  document.getElementById('qual-qualified-content').innerHTML='<div style="text-align:center;padding:24px"><div class="spinner"></div> Scoring all lenders against your profile...</div>';
+  try{
+    const r=await api(`/api/lenders/qualify/${currentBiz}`);
+    qualData=r;
+    document.getElementById('qcount-qualified').textContent=r.qualified.length;
+    document.getElementById('qcount-conditional').textContent=r.conditional.length;
+    document.getElementById('qcount-disqualified').textContent=r.disqualified.length;
+    renderQualTable('qualified',r.qualified);
+    renderQualTable('conditional',r.conditional);
+    renderQualTable('disqualified',r.disqualified);
+    showQualTab('qualified');
+  }catch(e){document.getElementById('qual-qualified-content').innerHTML=`<div class="alert alert-err">${e.message}</div>`;}
+}
+
+function renderQualTable(type,items){
+  const el=document.getElementById(`qual-${type}-content`);
+  if(type==='disqualified'){
+    el.innerHTML=`<table><thead><tr><th>Lender</th><th>Category</th><th>Tier</th><th>Why Disqualified</th><th>Re-Qualify In</th></tr></thead><tbody>
+    ${items.map(i=>`<tr>
+      <td><strong>${i.lender.name}</strong></td>
+      <td style="color:var(--muted);font-size:11px">${i.lender.category}</td>
+      <td><span class="badge b-${i.lender.tier}">${i.lender.tier}</span></td>
+      <td style="font-size:11px;color:var(--red)">${(i.hard_fails||[]).join('; ')}</td>
+      <td style="font-size:11px;color:var(--muted)">${i.requalify_months===0?'Immediately':i.requalify_months+'mo'}</td>
+    </tr>`).join('')}
+    </tbody></table>`;
+    return;
+  }
+  el.innerHTML=`<table><thead><tr><th>Lender</th><th>Tier</th><th>Score</th><th>Max Credit</th><th>Pull</th><th>Reports</th><th>Positives</th>${type==='qualified'?'<th>Action</th>':''}</tr></thead><tbody>
+  ${items.map(i=>`<tr>
+    <td><strong>${i.lender.name}</strong><div style="font-size:10px;color:var(--muted)">${i.lender.product_type||''}</div></td>
+    <td><span class="badge b-${i.lender.tier}">${i.lender.tier}</span></td>
+    <td><div class="prob-bar"><div class="prob-text" style="color:${i.qual_score>=70?'var(--green)':i.qual_score>=50?'var(--gold)':'var(--red)'}">${i.qual_score}%</div><div class="prog-bar"><div class="prog-fill" style="width:${i.qual_score}%;background:${i.qual_score>=70?'var(--green)':i.qual_score>=50?'var(--gold)':'var(--red)'}"></div></div></div></td>
+    <td style="font-size:11px">$${i.lender.credit_limit_max>=1e6?(i.lender.credit_limit_max/1e6).toFixed(1)+'M':i.lender.credit_limit_max>=1e3?(i.lender.credit_limit_max/1e3).toFixed(0)+'K':i.lender.credit_limit_max||'?'}</td>
+    <td>${i.lender.hard_pull?'<span class="pull-hard">Hard Pull</span>':'<span class="pull-soft">Soft/None</span>'}</td>
+    <td><span class="bureau-dots">${i.lender.reports_to_dnb?'<span class="dnb">D&B</span>':''}${i.lender.reports_to_experian_biz?'<span class="exp">Exp</span>':''}${i.lender.reports_to_equifax_biz?'<span class="eq">EQ</span>':''}</span></td>
+    <td style="font-size:10px;color:var(--muted)">${(i.passes||[]).slice(0,2).join(' · ')}</td>
+    ${type==='qualified'?`<td><button class="btn btn-sm btn-outline" onclick="applySingle(${i.lender.id},'${i.lender.name}')">Apply →</button></td>`:''}
+  </tr>`).join('')}
+  </tbody></table>`;
+}
+
+function showQualTab(tab){
+  ['qualified','conditional','disqualified'].forEach(t=>{
+    document.getElementById(`qual-${t}-content`).style.display=t===tab?'block':'none';
+    document.getElementById(`qtab-${t}`).classList.toggle('active',t===tab);
+  });
+}
+
+async function launchCampaign(){
+  if(!currentBiz)return alert('Select a business first');
+  const mode=document.getElementById('camp-mode').value;
+  if(mode==='false'&&!confirm('⚠️ LIVE MODE: This will actually submit applications to lenders. Confirm?'))return;
+  const btn=document.getElementById('launch-btn');
+  btn.disabled=true;btn.textContent='⏳ Launching...';
+  document.getElementById('campaign-status').style.display='block';
+  document.getElementById('campaign-body').innerHTML='<div class="spinner"></div> Campaign running...';
+  try{
+    const r=await api('/api/campaign/start',{method:'POST',body:JSON.stringify({
+      business_id:currentBiz,
+      max_applications:parseInt(document.getElementById('camp-max').value)||null,
+      dry_run:mode==='true',
+      include_conditional:document.getElementById('camp-conditional').value==='true',
+      categories:document.getElementById('camp-cat').value?[document.getElementById('camp-cat').value]:null,
+      tier_filter:document.getElementById('camp-tier').value||null,
+    })});
+    pollCampaign(r.task_id,btn);
+  }catch(e){
+    document.getElementById('campaign-body').innerHTML=`<div class="alert alert-err">${e.message}</div>`;
+    btn.disabled=false;btn.textContent='⚡ Launch Campaign';
+  }
+}
+
+async function pollCampaign(id,btn){
+  const iv=setInterval(async()=>{
+    try{
+      const s=await api(`/api/campaign/status/${id}`);
+      if(s.status==='complete'){
+        clearInterval(iv);btn.disabled=false;btn.textContent='⚡ Launch Campaign';
+        const r=s.results;
+        document.getElementById('campaign-body').innerHTML=`
+          <div class="alert alert-ok">✅ Campaign Complete!</div>
+          <div class="stats-grid">
+            <div class="stat"><div class="stat-val">${r.total_queued}</div><div class="stat-label">Queued</div></div>
+            <div class="stat green"><div class="stat-val">${r.submitted}</div><div class="stat-label">Submitted</div></div>
+            <div class="stat"><div class="stat-val">${r.disqualified_count}</div><div class="stat-label">Saved From Bad Pulls</div></div>
+            <div class="stat red"><div class="stat-val">${r.captcha}</div><div class="stat-label">Need Manual</div></div>
+          </div>
+          ${r.newly_unlocked?.length?`<div class="alert alert-ok">🎉 Tier advanced! New lenders unlocked: ${r.newly_unlocked.join(', ')}</div>`:''}
+        `;
+        loadApplications();loadDashboard();
+      }else if(s.status==='error'){
+        clearInterval(iv);btn.disabled=false;btn.textContent='⚡ Launch Campaign';
+        document.getElementById('campaign-body').innerHTML=`<div class="alert alert-err">Error: ${s.error}</div>`;
+      }
+    }catch(e){clearInterval(iv);}
+  },4000);
+}
+
+async function applySingle(lenderId,lenderName){
+  if(!currentBiz)return;
+  if(!confirm(`Apply to ${lenderName}? Mode: DRY RUN — change in Campaign Settings to go live.`))return;
+  try{
+    const r=await api(`/api/apply/single?business_id=${currentBiz}&lender_id=${lenderId}&dry_run=true`,{method:'POST'});
+    alert(`${lenderName}: ${r.status||r.message}`);
+    loadApplications();
+  }catch(e){alert('Error: '+e.message);}
+}
+
+// ── Lenders ─────────────────────────────────────────────────────────────────────
+async function loadLenders(){
+  try{
+    allLenders=await api('/api/lenders');
+    renderLenders(allLenders);
+  }catch(e){}
+}
+function filterLenders(){
+  const cat=document.getElementById('l-cat').value;
+  const tier=document.getElementById('l-tier').value;
+  renderLenders(allLenders.filter(l=>(!cat||l.category===cat)&&(!tier||l.tier===tier)));
+}
+function renderLenders(list){
+  document.getElementById('lender-count').textContent=`${list.length} Lenders`;
+  document.getElementById('lenders-body').innerHTML=list.map(l=>`<tr class="lender-row">
+    <td><strong>${l.name}</strong><div style="font-size:10px;color:var(--muted)">${l.product_type||''}</div></td>
+    <td><span class="badge b-${l.tier}">${l.tier}</span></td>
+    <td style="font-size:12px">$${l.credit_limit_max>=1e6?(l.credit_limit_max/1e6).toFixed(1)+'M':l.credit_limit_max>=1e3?(l.credit_limit_max/1e3).toFixed(0)+'K':l.credit_limit_max||'?'}</td>
+    <td style="font-size:12px">${l.req_min_personal_credit||'None'}</td>
+    <td style="font-size:12px">${l.req_min_months?l.req_min_months+'mo':'Any'}</td>
+    <td>${l.hard_pull?'<span class="pull-hard">Hard</span>':'<span class="pull-soft">Soft/None</span>'}</td>
+    <td><span class="bureau-dots">${l.reports_to_dnb?'<span class="dnb">D&B</span>':''}${l.reports_to_experian_biz?'<span class="exp">Exp</span>':''}${l.reports_to_equifax_biz?'<span class="eq">EQ</span>':''}</span></td>
+    <td style="font-size:11px;color:var(--muted)">${l.approval_time||'?'}</td>
+  </tr>`).join('');
+}
+
+// ── Applications ─────────────────────────────────────────────────────────────
+async function loadApplications(){
+  const url='/api/applications'+(currentBiz?`?business_id=${currentBiz}`:'');
+  const apps=await api(url);
+  document.getElementById('apps-body').innerHTML=apps.map(a=>{
+    const status=(a.status||'').replace('ApplicationStatus.','');
+    return`<tr>
+      <td><strong>${a.lender_name}</strong></td>
+      <td><span class="badge b-${a.lender_tier||'starter'}">${a.lender_tier||'?'}</span></td>
+      <td><span class="badge b-${status}">${status}</span></td>
+      <td style="font-size:11px">${a.qualification_score?a.qualification_score.toFixed(0)+'%':''}</td>
+      <td style="color:var(--muted);font-size:11px">${a.reference_number||'—'}</td>
+      <td style="font-size:10px;color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.ai_notes||a.error_message||'—'}</td>
+      <td style="font-size:11px;color:var(--muted)">${a.submitted_at?new Date(a.submitted_at).toLocaleDateString():'—'}</td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">No applications</td></tr>';
+}
+
+// ── Accounts ─────────────────────────────────────────────────────────────────
+async function loadAccounts(){
+  const url='/api/accounts'+(currentBiz?`?business_id=${currentBiz}`:'');
+  const accs=await api(url);
+  document.getElementById('accounts-body').innerHTML=accs.map(a=>`<tr>
+    <td><strong>${a.account_name}</strong></td>
+    <td style="color:var(--muted);font-size:11px">${a.account_type}</td>
+    <td>$${(a.credit_limit||0).toLocaleString()}</td>
+    <td>$${(a.current_balance||0).toLocaleString()}</td>
+    <td style="color:${(a.utilization_pct||0)<20?'var(--green)':(a.utilization_pct||0)<50?'var(--gold)':'var(--red)'}">${(a.utilization_pct||0).toFixed(0)}%</td>
+    <td style="font-size:11px">${a.on_time_payments} ✅ / ${a.late_payments} ❌</td>
+    <td><span class="bureau-dots">${a.reports_to_dnb?'<span class="dnb">D&B</span>':''}${a.reports_to_experian_biz?'<span class="exp">Exp</span>':''}${a.reports_to_equifax_biz?'<span class="eq">EQ</span>':''}</span></td>
+    <td style="font-size:11px;color:var(--muted)">${a.payment_due_date||'—'}</td>
+    <td><button class="btn btn-sm btn-outline" onclick="editAccount(${a.id})">Edit</button></td>
+  </tr>`).join('')||'<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted)">No active accounts</td></tr>';
+}
+function editAccount(id){const limit=prompt('New credit limit:');if(limit)api(`/api/accounts/${id}`,{method:'PUT',body:JSON.stringify({credit_limit:parseFloat(limit)})}).then(()=>loadAccounts());}
+
+// ── Payments ─────────────────────────────────────────────────────────────────
+async function loadPayments(){
+  if(!currentBiz)return;
+  const [payments,summary]=await Promise.all([
+    api(`/api/payments?business_id=${currentBiz}`),
+    api(`/api/payments/summary/${currentBiz}`),
+  ]);
+  document.getElementById('payment-summary-cards').innerHTML=`
+    <div class="stat red"><div class="stat-val">${summary.overdue_count}</div><div class="stat-label">Overdue</div></div>
+    <div class="stat gold"><div class="stat-val">${summary.due_soon_count}</div><div class="stat-label">Due Soon</div></div>
+    <div class="stat"><div class="stat-val">$${(summary.upcoming_30d_amount||0).toFixed(0)}</div><div class="stat-label">Due Next 30 Days</div></div>
+    <div class="stat green"><div class="stat-val">${summary.on_time_rate}%</div><div class="stat-label">On-Time Rate</div></div>
+  `;
+  document.getElementById('payments-body').innerHTML=payments.map(p=>{
+    const status=(p.payment_status||'').replace('PaymentStatus.','');
+    return`<tr class="payment-row ${status}">
+      <td><strong>${p.account_name}</strong></td>
+      <td>${p.due_date}</td>
+      <td>$${(p.amount_due||0).toFixed(2)}</td>
+      <td><span class="badge b-${status}">${status}</span></td>
+      <td style="font-size:12px">${p.days_until_due!=null?p.days_until_due>0?`${p.days_until_due}d`:'TODAY':`${p.overdue_days}d LATE`:''}</td>
+      <td><button class="btn btn-sm btn-green" onclick="markPaid(${p.id},${p.amount_due})">✓ Mark Paid</button></td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted)">No upcoming payments</td></tr>';
+}
+
+async function markPaid(id,amount){
+  const paid=parseFloat(prompt(`Amount paid (default: ${amount}):`,amount)||amount);
+  const conf=prompt('Confirmation number (optional):','');
+  await api('/api/payments/mark-paid',{method:'POST',body:JSON.stringify({payment_id:id,amount:paid,confirmation:conf||''})});
+  loadPayments();loadDashboard();
+}
+
+async function triggerPaymentCheck(){
+  await api('/api/payments/check',{method:'POST'});
+  alert('Payment check complete — reminders sent if needed');
+  loadPayments();
+}
+
+// ── Business Save/Load ────────────────────────────────────────────────────────
+async function saveBusiness(){
+  const numFields=['annual_revenue','monthly_revenue','years_in_business','num_employees','average_bank_balance','personal_credit_score','dnb_paydex','experian_intelliscore','equifax_business_score','existing_tradelines','owner_percentage'];
+  const fields=['legal_name','dba_name','entity_type','state_of_incorporation','date_of_incorporation','ein','duns_number','business_address','business_city','business_state','business_zip','business_phone','business_email','website','industry','naics_code','owner_first_name','owner_last_name','owner_ssn','owner_dob','owner_address','owner_city','owner_state','owner_zip','owner_phone','owner_email','bank_name',...numFields];
+  const data={};
+  fields.forEach(f=>{const el=document.getElementById('f-'+f);if(el){const v=el.value;data[f]=numFields.includes(f)?(parseFloat(v)||0):v;}});
+  const bc=document.getElementById('f-business_checking_account');
+  data.business_checking_account=bc?bc.value==='true':false;
+  const alert=document.getElementById('biz-alert');
+  try{
+    const r=await api('/api/business',{method:'POST',body:JSON.stringify(data)});
+    alert.innerHTML=`<div class="alert alert-ok">✅ Saved! Business ID: ${r.id}</div>`;
+    loadBizList();
+  }catch(e){alert.innerHTML=`<div class="alert alert-err">Error: ${e.message}</div>`;}
+}
+async function loadBusinessForm(){
+  if(!currentBiz)return;
+  const d=await api(`/api/business/${currentBiz}`);
+  Object.entries(d).forEach(([k,v])=>{const el=document.getElementById('f-'+k);if(el&&v!=null)el.value=v;});
+}
+
+// ── Credit Brain ──────────────────────────────────────────────────────────────
+async function sendBrain(){
+  if(!currentBiz)return alert('Select a business first');
+  const input=document.getElementById('brain-input');
+  const msg=input.value.trim();if(!msg)return;
+  input.value='';
+  addBrainMsg(msg,'user');
+  const typing=addBrainMsg('<div class="spinner"></div>','brain');
+  try{
+    const r=await api('/api/brain/think',{method:'POST',body:JSON.stringify({message:msg,business_id:currentBiz,session_id:brainSession})});
+    brainSession=r.session_id;
+    typing.remove();
+    addBrainMsg(r.response,'brain');
+    if(r.authorization_required){
+      showAuthBox(r.authorization_required);
+    }
+  }catch(e){typing.remove();addBrainMsg('Error: '+e.message,'ai');}
+}
+
+function addBrainMsg(text,type){
+  const msgs=document.getElementById('brain-msgs');
+  const div=document.createElement('div');
+  div.className='msg '+type;div.innerHTML=text;
+  msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;
+  return div;
+}
+
+function showAuthBox(auth){
+  const area=document.getElementById('brain-auth-area');
+  const details=auth.details||{};
+  area.innerHTML=`<div class="auth-box">
+    <h3>⚡ Authorization Required</h3>
+    <p>${auth.summary}</p>
+    <div class="auth-details">
+      ${details.lenders?`<strong>Lenders:</strong> ${details.lenders.join(', ')}<br>`:''}
+      ${details.total_hard_pulls!==undefined?`<strong>Hard Pulls:</strong> ${details.total_hard_pulls} | <strong>Soft/No Pull:</strong> ${details.total_soft_pulls||'N/A'}<br>`:''}
+      ${details.estimated_credit?`<strong>Est. Credit:</strong> $${details.estimated_credit.toLocaleString()}<br>`:''}
+      ${details.benefits?.length?`<strong>Benefits:</strong><ul>${details.benefits.map(b=>`<li>${b}</li>`).join('')}</ul>`:''}
+      ${details.risks?.length?`<strong>Risks:</strong><ul>${details.risks.map(r=>`<li>${r}</li>`).join('')}</ul>`:''}
+    </div>
+    <div class="auth-buttons">
+      <button class="btn btn-green" onclick="authorize(true)">✅ AUTHORIZE — Proceed</button>
+      <button class="btn btn-red" onclick="authorize(false)">❌ DENY — Stop</button>
+    </div>
+  </div>`;
+}
+
+async function authorize(approved){
+  document.getElementById('brain-auth-area').innerHTML='';
+  addBrainMsg(approved?'✅ Authorized — proceeding...':'❌ Denied.','system');
+  const typing=addBrainMsg('<div class="spinner"></div>','brain');
+  try{
+    const r=await api('/api/brain/authorize',{method:'POST',body:JSON.stringify({session_id:brainSession,authorized:approved,business_id:currentBiz})});
+    typing.remove();
+    addBrainMsg(r.response,'brain');
+    if(r.authorization_required)showAuthBox(r.authorization_required);
+    loadDashboard();loadApplications();
+  }catch(e){typing.remove();addBrainMsg('Error: '+e.message,'ai');}
+}
+
+function brainKeydown(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendBrain();}}
+
+// ── AI Advisor ─────────────────────────────────────────────────────────────────
+async function sendAdvisor(){
+  const input=document.getElementById('advisor-input');
+  const msg=input.value.trim();if(!msg)return;input.value='';
+  const msgs=document.getElementById('advisor-msgs');
+  const addMsg=(text,type)=>{const d=document.createElement('div');d.className='msg '+type;d.textContent=text;msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;return d;};
+  addMsg(msg,'user');
+  advisorHistory.push({role:'user',content:msg});
+  const t=addMsg('','ai');t.innerHTML='<div class="spinner"></div>';
+  try{
+    const r=await api('/api/chat',{method:'POST',body:JSON.stringify({message:msg,business_id:currentBiz,history:advisorHistory.slice(-10)})});
+    t.textContent=r.response;advisorHistory.push({role:'assistant',content:r.response});
+  }catch(e){t.textContent='Error: '+e.message;}
+}
+function advisorKeydown(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendAdvisor();}}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadBizList();
+loadDashboard();
+loadLenders();
+</script>
+</body>
+</html>

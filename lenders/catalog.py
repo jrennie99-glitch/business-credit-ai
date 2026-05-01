@@ -175,7 +175,7 @@ LENDERS = [
     {
         "name": "Staples Business Advantage",
         "category": "net30",
-        "tier": "starter",
+        "tier": "established",
         "website": "https://www.staplesadvantage.com",
         "application_url": "https://www.staplesadvantage.com/portal/en_US/login.html",
         "product_type": "Net-30 Trade Account",
@@ -315,7 +315,7 @@ LENDERS = [
     {
         "name": "GoodNeon",
         "category": "net30",
-        "tier": "starter",
+        "tier": "builder",
         "website": "https://goodneon.com",
         "application_url": "https://goodneon.com/pages/net-30",
         "product_type": "Net-30 Trade Account",
@@ -356,7 +356,7 @@ LENDERS = [
     {
         "name": "HD Supply",
         "category": "net30",
-        "tier": "starter",
+        "tier": "builder",
         "website": "https://www.hdsupply.com",
         "application_url": "https://www.hdsupply.com/intershop/web/HDS/HSI-US/en_US/USD/SignIn-Start",
         "product_type": "Net-30 Trade Account",

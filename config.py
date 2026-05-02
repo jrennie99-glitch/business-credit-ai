@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     # Captcha
     captcha_api_key: str = Field(default="", env="CAPTCHA_API_KEY")
 
+    # Auth
+    admin_username: str = Field(default="admin", env="ADMIN_USERNAME")
+    admin_password: str = Field(default="changeme123", env="ADMIN_PASSWORD")
+    access_token_expire_minutes: int = Field(default=1440, env="TOKEN_EXPIRE_MINUTES")  # 24h
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 

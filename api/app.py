@@ -6,12 +6,14 @@ from pathlib import Path
 from typing import Optional
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from utils.auth import require_auth, authenticate_user, create_access_token
+from config import settings
 
 from database import init_db, get_db
 from database.models import (
@@ -60,7 +62,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -156,6 +158,11 @@ class CreditScoreUpdate(BaseModel):
     notes: Optional[str] = None
 
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
 # ─── Root ────────────────────────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
@@ -166,10 +173,25 @@ async def dashboard():
     return HTMLResponse("<h1>Business Credit AI</h1>")
 
 
+# ─── Auth ─────────────────────────────────────────────────────────────────────
+
+@app.post("/api/auth/login")
+def login(data: LoginRequest):
+    if not authenticate_user(data.username, data.password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    token = create_access_token({"sub": data.username})
+    return {"access_token": token, "token_type": "bearer"}
+
+
+@app.get("/api/auth/me")
+def me(user: str = Depends(require_auth)):
+    return {"username": user}
+
+
 # ─── Business Profiles ────────────────────────────────────────────────────────
 
 @app.post("/api/business")
-def create_business(data: BusinessCreate, db: Session = Depends(get_db)):
+def create_business(data: BusinessCreate, db: Session = Depends(get_db), _: str = Depends(require_auth)):
     business = BusinessProfile(**data.model_dump())
     business.current_tier = CreditTier.FOUNDATION
     db.add(business)
@@ -179,13 +201,13 @@ def create_business(data: BusinessCreate, db: Session = Depends(get_db)):
 
 
 @app.get("/api/business")
-def list_businesses(db: Session = Depends(get_db)):
+def list_businesses(db: Session = Depends(get_db), _: str = Depends(require_auth)):
     businesses = db.query(BusinessProfile).all()
     return [_serialize_business_summary(b) for b in businesses]
 
 
 @app.get("/api/business/{business_id}")
-def get_business(business_id: int, db: Session = Depends(get_db)):
+def get_business(business_id: int, db: Session = Depends(get_db), _: str = Depends(require_auth)):
     b = db.query(BusinessProfile).filter(BusinessProfile.id == business_id).first()
     if not b:
         raise HTTPException(404, "Not found")
@@ -195,7 +217,7 @@ def get_business(business_id: int, db: Session = Depends(get_db)):
 
 
 @app.put("/api/business/{business_id}")
-def update_business(business_id: int, data: BusinessCreate, db: Session = Depends(get_db)):
+def update_business(business_id: int, data: BusinessCreate, db: Session = Depends(get_db), _: str = Depends(require_auth)):
     b = db.query(BusinessProfile).filter(BusinessProfile.id == business_id).first()
     if not b:
         raise HTTPException(404, "Not found")
@@ -232,6 +254,7 @@ def list_lenders(
     category: Optional[str] = None,
     tier: Optional[str] = None,
     db: Session = Depends(get_db),
+    _: str = Depends(require_auth),
 ):
     query = db.query(Lender).filter(Lender.is_active == True)
     if category:
@@ -243,7 +266,7 @@ def list_lenders(
 
 
 @app.get("/api/lenders/qualify/{business_id}")
-def qualify_lenders(business_id: int, db: Session = Depends(get_db)):
+def qualify_lenders(business_id: int, db: Session = Depends(get_db), _: str = Depends(require_auth)):
     """Qualify all lenders for a business — returns sorted, reasoned results."""
     b = db.query(BusinessProfile).filter(BusinessProfile.id == business_id).first()
     if not b:
@@ -300,7 +323,7 @@ def _serialize_lender(l: Lender) -> dict:
 # ─── Campaign ─────────────────────────────────────────────────────────────────
 
 @app.post("/api/campaign/start")
-async def start_campaign(req: CampaignRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+async def start_campaign(req: CampaignRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db), _: str = Depends(require_auth)):
     b = db.query(BusinessProfile).filter(BusinessProfile.id == req.business_id).first()
     if not b:
         raise HTTPException(404, "Business not found")
@@ -353,7 +376,7 @@ async def _run_campaign_bg(business_id, max_apps, dry_run, include_conditional, 
 
 
 @app.get("/api/campaign/status/{task_id}")
-def campaign_status(task_id: int):
+def campaign_status(task_id: int, _: str = Depends(require_auth)):
     if task_id not in _active_campaigns:
         raise HTTPException(404, "No campaign found")
     return _active_campaigns[task_id]
@@ -362,7 +385,7 @@ def campaign_status(task_id: int):
 @app.post("/api/apply/single")
 async def apply_single_lender(
     business_id: int, lender_id: int, dry_run: bool = True,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db), _: str = Depends(require_auth),
 ):
     """Apply to one specific lender."""
     b = db.query(BusinessProfile).filter(BusinessProfile.id == business_id).first()
@@ -377,7 +400,7 @@ async def apply_single_lender(
 # ─── Applications ─────────────────────────────────────────────────────────────
 
 @app.get("/api/applications")
-def list_applications(business_id: Optional[int] = None, db: Session = Depends(get_db)):
+def list_applications(business_id: Optional[int] = None, db: Session = Depends(get_db), _: str = Depends(require_auth)):
     query = db.query(Application)
     if business_id:
         query = query.filter(Application.business_id == business_id)
@@ -386,7 +409,7 @@ def list_applications(business_id: Optional[int] = None, db: Session = Depends(g
 
 
 @app.put("/api/applications/{app_id}")
-def update_application(app_id: int, status: str, amount: Optional[float] = None, notes: Optional[str] = None, db: Session = Depends(get_db)):
+def update_application(app_id: int, status: str, amount: Optional[float] = None, notes: Optional[str] = None, db: Session = Depends(get_db), _: str = Depends(require_auth)):
     app = db.query(Application).filter(Application.id == app_id).first()
     if not app:
         raise HTTPException(404, "Not found")
@@ -436,7 +459,7 @@ def _serialize_application(a: Application) -> dict:
 # ─── Active Accounts ─────────────────────────────────────────────────────────
 
 @app.get("/api/accounts")
-def list_accounts(business_id: Optional[int] = None, db: Session = Depends(get_db)):
+def list_accounts(business_id: Optional[int] = None, db: Session = Depends(get_db), _: str = Depends(require_auth)):
     query = db.query(ActiveAccount)
     if business_id:
         query = query.filter(ActiveAccount.business_id == business_id)
@@ -445,7 +468,7 @@ def list_accounts(business_id: Optional[int] = None, db: Session = Depends(get_d
 
 
 @app.put("/api/accounts/{account_id}")
-def update_account(account_id: int, data: AccountUpdate, db: Session = Depends(get_db)):
+def update_account(account_id: int, data: AccountUpdate, db: Session = Depends(get_db), _: str = Depends(require_auth)):
     acc = db.query(ActiveAccount).filter(ActiveAccount.id == account_id).first()
     if not acc:
         raise HTTPException(404, "Not found")
@@ -493,7 +516,7 @@ def _serialize_account(a: ActiveAccount) -> dict:
 # ─── Payments ─────────────────────────────────────────────────────────────────
 
 @app.get("/api/payments")
-def list_payments(business_id: Optional[int] = None, status: Optional[str] = None, db: Session = Depends(get_db)):
+def list_payments(business_id: Optional[int] = None, status: Optional[str] = None, db: Session = Depends(get_db), _: str = Depends(require_auth)):
     query = db.query(PaymentSchedule)
     if business_id:
         query = query.filter(PaymentSchedule.business_id == business_id)
@@ -504,12 +527,12 @@ def list_payments(business_id: Optional[int] = None, status: Optional[str] = Non
 
 
 @app.get("/api/payments/summary/{business_id}")
-def payment_summary(business_id: int, db: Session = Depends(get_db)):
+def payment_summary(business_id: int, db: Session = Depends(get_db), _: str = Depends(require_auth)):
     return payment_monitor.get_payment_summary(business_id, db)
 
 
 @app.post("/api/payments/mark-paid")
-def mark_payment_paid(data: PaymentUpdate, db: Session = Depends(get_db)):
+def mark_payment_paid(data: PaymentUpdate, db: Session = Depends(get_db), _: str = Depends(require_auth)):
     p = payment_monitor.mark_paid(
         data.payment_id, data.amount, data.method,
         data.confirmation or "", db
@@ -518,7 +541,7 @@ def mark_payment_paid(data: PaymentUpdate, db: Session = Depends(get_db)):
 
 
 @app.post("/api/payments/check")
-async def run_payment_check(db: Session = Depends(get_db)):
+async def run_payment_check(db: Session = Depends(get_db), _: str = Depends(require_auth)):
     """Manually trigger the daily payment check."""
     await payment_monitor.run_daily_check(db)
     return {"checked": True}
@@ -547,7 +570,7 @@ def _serialize_payment(p: PaymentSchedule) -> dict:
 # ─── Credit Monitoring ────────────────────────────────────────────────────────
 
 @app.get("/api/credit/report/{business_id}")
-def credit_report(business_id: int, db: Session = Depends(get_db)):
+def credit_report(business_id: int, db: Session = Depends(get_db), _: str = Depends(require_auth)):
     b = db.query(BusinessProfile).filter(BusinessProfile.id == business_id).first()
     if not b:
         raise HTTPException(404, "Not found")
@@ -555,12 +578,12 @@ def credit_report(business_id: int, db: Session = Depends(get_db)):
 
 
 @app.get("/api/credit/history/{business_id}")
-def credit_history(business_id: int, db: Session = Depends(get_db)):
+def credit_history(business_id: int, db: Session = Depends(get_db), _: str = Depends(require_auth)):
     return credit_monitor.get_score_history(business_id, db)
 
 
 @app.post("/api/credit/update")
-def update_credit_scores(data: CreditScoreUpdate, db: Session = Depends(get_db)):
+def update_credit_scores(data: CreditScoreUpdate, db: Session = Depends(get_db), _: str = Depends(require_auth)):
     """Manually update credit scores — enter data from Nav, D&B, Experian."""
     b = db.query(BusinessProfile).filter(BusinessProfile.id == data.business_id).first()
     if not b:
@@ -608,7 +631,7 @@ def update_credit_scores(data: CreditScoreUpdate, db: Session = Depends(get_db))
 # ─── Progression ─────────────────────────────────────────────────────────────
 
 @app.get("/api/progression/{business_id}")
-def get_progression(business_id: int, db: Session = Depends(get_db)):
+def get_progression(business_id: int, db: Session = Depends(get_db), _: str = Depends(require_auth)):
     b = db.query(BusinessProfile).filter(BusinessProfile.id == business_id).first()
     if not b:
         raise HTTPException(404, "Not found")
@@ -620,7 +643,7 @@ def get_progression(business_id: int, db: Session = Depends(get_db)):
 # ─── AI Chat ─────────────────────────────────────────────────────────────────
 
 @app.post("/api/chat")
-def chat(msg: ChatMessage, db: Session = Depends(get_db)):
+def chat(msg: ChatMessage, db: Session = Depends(get_db), _: str = Depends(require_auth)):
     context = ""
     if msg.business_id:
         b = db.query(BusinessProfile).filter(BusinessProfile.id == msg.business_id).first()
@@ -639,7 +662,7 @@ def chat(msg: ChatMessage, db: Session = Depends(get_db)):
 
 
 @app.get("/api/plan/{business_id}")
-def get_plan(business_id: int, db: Session = Depends(get_db)):
+def get_plan(business_id: int, db: Session = Depends(get_db), _: str = Depends(require_auth)):
     b = db.query(BusinessProfile).filter(BusinessProfile.id == business_id).first()
     if not b:
         raise HTTPException(404, "Not found")
@@ -649,7 +672,7 @@ def get_plan(business_id: int, db: Session = Depends(get_db)):
 # ─── Stats ────────────────────────────────────────────────────────────────────
 
 @app.get("/api/stats")
-def stats(business_id: Optional[int] = None, db: Session = Depends(get_db)):
+def stats(business_id: Optional[int] = None, db: Session = Depends(get_db), _: str = Depends(require_auth)):
     app_q = db.query(Application)
     acc_q = db.query(ActiveAccount)
     pay_q = db.query(PaymentSchedule)
@@ -706,7 +729,7 @@ class BrainAuthorize(BaseModel):
 
 
 @app.post("/api/brain/think")
-async def brain_think(msg: BrainMessage, db: Session = Depends(get_db)):
+async def brain_think(msg: BrainMessage, db: Session = Depends(get_db), _: str = Depends(require_auth)):
     """Send a message to the Credit Brain — it will reason, plan, and act."""
     import uuid
     session_id = msg.session_id or str(uuid.uuid4())
@@ -738,7 +761,7 @@ async def brain_think(msg: BrainMessage, db: Session = Depends(get_db)):
 
 
 @app.post("/api/brain/authorize")
-async def brain_authorize(data: BrainAuthorize, db: Session = Depends(get_db)):
+async def brain_authorize(data: BrainAuthorize, db: Session = Depends(get_db), _: str = Depends(require_auth)):
     """Approve or deny the Brain's pending action plan."""
     session = _brain_sessions.get(data.session_id)
     if not session:

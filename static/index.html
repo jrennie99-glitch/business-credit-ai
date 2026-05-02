@@ -135,9 +135,46 @@ tr:hover td{background:var(--s2)}
 .god-banner .icon{font-size:36px}
 .god-banner h2{color:var(--gold);font-size:17px;margin-bottom:3px}
 .god-banner p{color:var(--muted);font-size:12px}
+/* ── Login screen ─────────────────────────────────────────────────────── */
+#login-screen{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center}
+.login-card{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:40px 44px;width:360px;box-shadow:0 20px 60px #00000099}
+.login-logo{text-align:center;margin-bottom:28px}
+.login-logo h1{font-size:20px;font-weight:700;color:var(--accent);margin-bottom:4px}
+.login-logo p{font-size:11px;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase}
+.login-card .fg{margin-bottom:14px}
+.login-card .fg label{font-size:12px;color:var(--muted)}
+.login-card .fg input{width:100%}
+.login-btn{width:100%;padding:11px;font-size:14px;font-weight:700;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;margin-top:6px;transition:opacity .15s}
+.login-btn:hover{opacity:.9}
+.login-btn:disabled{opacity:.5;cursor:not-allowed}
+#login-err{display:none;margin-top:12px;padding:9px 12px;border-radius:7px;background:#200d0d;border:1px solid #501a1a;color:#ff6b6b;font-size:12px;text-align:center}
+/* logout button */
+.btn-logout{background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;transition:all .15s}
+.btn-logout:hover{border-color:var(--red);color:var(--red)}
 </style>
 </head>
 <body>
+
+<!-- ── LOGIN SCREEN ────────────────────────────────────────────────────────── -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <h1>💳 Business Credit AI</h1>
+      <p>⚡ God Mode</p>
+    </div>
+    <div class="fg">
+      <label>Username</label>
+      <input type="text" id="login-user" placeholder="admin" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="fg">
+      <label>Password</label>
+      <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" id="login-btn" onclick="doLogin()">Sign In</button>
+    <div id="login-err"></div>
+  </div>
+</div>
+
 <div class="layout">
 <nav class="sidebar">
   <div class="logo"><h1>💳 Business Credit AI</h1><p>⚡ God Mode</p></div>
@@ -168,6 +205,7 @@ tr:hover td{background:var(--s2)}
         <option value="">Select Business...</option>
       </select>
       <button class="btn btn-sm btn-outline" onclick="nav('business')">+ Add Business</button>
+      <button class="btn-logout" onclick="doLogout()" title="Sign out">⎋ Logout</button>
     </div>
   </div>
 
@@ -482,9 +520,65 @@ let brainSession = null;
 let advisorHistory = [];
 
 // ── API helper ───────────────────────────────────────────────────────────────
-async function api(path, opts={}) {
+// ── Auth helpers ─────────────────────────────────────────────────────────────
+function getToken() { return localStorage.getItem('bc_token'); }
+function setToken(t) { localStorage.setItem('bc_token', t); }
+function clearToken() { localStorage.removeItem('bc_token'); }
+
+async function doLogin() {
+  const btn = document.getElementById('login-btn');
+  const err = document.getElementById('login-err');
+  const user = document.getElementById('login-user').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  if (!user || !pass) { showLoginErr('Enter username and password.'); return; }
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  err.style.display = 'none';
   try {
-    const r = await fetch(path, {headers:{'Content-Type':'application/json'}, ...opts});
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username: user, password: pass}),
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(()=>({detail:'Invalid credentials'}));
+      throw new Error(e.detail || 'Login failed');
+    }
+    const data = await res.json();
+    setToken(data.access_token);
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('login-pass').value = '';
+    await init();
+  } catch(e) {
+    showLoginErr(e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Sign In';
+  }
+}
+
+function showLoginErr(msg) {
+  const err = document.getElementById('login-err');
+  err.textContent = msg; err.style.display = 'block';
+}
+
+function doLogout() {
+  clearToken();
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+  document.getElementById('login-err').style.display = 'none';
+}
+
+async function api(path, opts={}) {
+  const token = getToken();
+  const headers = {'Content-Type': 'application/json'};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  try {
+    const r = await fetch(path, {headers, ...opts});
+    if (r.status === 401) {
+      clearToken();
+      document.getElementById('login-screen').style.display = 'flex';
+      throw new Error('Session expired — please log in again.');
+    }
     if (!r.ok) {
       const e = await r.json().catch(()=>({detail: r.statusText}));
       throw new Error(e.detail || r.statusText);
@@ -1384,7 +1478,24 @@ async function init() {
   loadLenders(); // pre-load lenders in background
 }
 
-init();
+// ── Bootstrap: check for existing token ──────────────────────────────────────
+(async function bootstrap() {
+  const token = getToken();
+  if (token) {
+    // Verify token is still valid
+    try {
+      await fetch('/api/auth/me', {headers: {'Authorization': `Bearer ${token}`}}).then(r => {
+        if (!r.ok) throw new Error('expired');
+      });
+      document.getElementById('login-screen').style.display = 'none';
+      await init();
+    } catch {
+      clearToken();
+      // login screen stays visible (display:flex by default)
+    }
+  }
+  // else: login screen stays visible
+})();
 </script>
 </body>
 </html>

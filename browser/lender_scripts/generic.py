@@ -35,15 +35,31 @@ Rules:
 - For "select" type, set value to the exact option text
 - For "checkbox" type, set value to "true" to check it
 - Format phone as (XXX) XXX-XXXX, EIN as XX-XXXXXXX, dates as MM/DD/YYYY
-- Do not invent data — only use what's in the business profile"""
+- Do not invent data — only use what's in the business profile
+- CRITICAL: If personal_credit_check is false in the business profile, NEVER fill SSN,
+  Social Security Number, personal credit score, date of birth, or personal guarantee fields.
+  Skip any field whose label contains: ssn, social security, personal credit, date of birth,
+  dob, personal guarantee, personal income, personal tax. These are business-only applications."""
+
+
+# Field labels that indicate personal credit — never fill these for no-PG lenders
+_PERSONAL_CREDIT_LABELS = {
+    "ssn", "social security", "social_security", "personal credit", "personal_credit",
+    "date of birth", "dob", "birth date", "birthdate", "personal guarantee",
+    "personal income", "personal tax", "personal annual", "owner ssn",
+    "guarantor", "personal score", "fico",
+}
 
 
 class GenericScript(BaseLenderScript):
     lender_name = "Generic"
 
-    def __init__(self, page, business_data: dict, application_url: str = None):
+    def __init__(self, page, business_data: dict, application_url: str = None,
+                 requires_personal_guarantee: bool = False, hard_pull: bool = False):
         super().__init__(page, business_data)
         self.application_url = application_url
+        # If lender doesn't do personal credit check, we lock out personal fields
+        self.personal_credit_check = requires_personal_guarantee or hard_pull
 
     async def apply(self) -> ApplyResult:
         try:
@@ -97,7 +113,12 @@ class GenericScript(BaseLenderScript):
                     selector = field.get("selector", "")
                     value = field.get("value", "")
                     ftype = field.get("type", "text")
+                    label = field.get("label", "")
                     if not selector or value in (None, "", False):
+                        continue
+                    # Hard guard: never fill personal credit fields for no-PG lenders
+                    if not self.personal_credit_check and self._is_personal_field(label, selector):
+                        log.warning(f"Blocked personal field '{label}' ({selector}) — lender has no personal credit check")
                         continue
                     try:
                         el = self.page.locator(selector).first
@@ -231,6 +252,11 @@ class GenericScript(BaseLenderScript):
         except Exception:
             return ""
 
+    def _is_personal_field(self, label: str, selector: str) -> bool:
+        """Return True if this field is a personal credit / SSN / DOB field."""
+        text = (label + " " + selector).lower()
+        return any(kw in text for kw in _PERSONAL_CREDIT_LABELS)
+
     async def _llm_fill_instructions(self, fields: list[dict], page_text: str, step: int) -> dict:
         """Ask the LLM (any provider) which fields to fill and with what values."""
         biz = {
@@ -249,7 +275,6 @@ class GenericScript(BaseLenderScript):
             "owner_last": self.data.get("owner_last_name"),
             "owner_email": self.data.get("owner_email"),
             "owner_phone": self.data.get("owner_phone"),
-            "owner_dob": self.data.get("owner_dob"),
             "annual_revenue": self.data.get("annual_revenue"),
             "monthly_revenue": self.data.get("monthly_revenue"),
             "years_in_business": self.data.get("years_in_business"),
@@ -258,8 +283,13 @@ class GenericScript(BaseLenderScript):
             "bank_name": self.data.get("bank_name"),
             "avg_bank_balance": self.data.get("average_bank_balance"),
             "num_employees": self.data.get("num_employees"),
-            "ssn_last4": self.data.get("ssn_last4"),
+            # Only include personal data if this lender actually does a personal credit check
+            "personal_credit_check": self.personal_credit_check,
         }
+        # Only expose DOB and SSN when the lender actually needs them
+        if self.personal_credit_check:
+            biz["owner_dob"] = self.data.get("owner_dob")
+            biz["ssn_last4"] = self.data.get("ssn_last4")
 
         prompt = f"""Step {step + 1} of a business credit application.
 

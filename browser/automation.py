@@ -40,6 +40,8 @@ class BrowserEngine:
         script_name: str,
         application_url: str,
         business_data: dict,
+        requires_personal_guarantee: bool = False,
+        hard_pull: bool = False,
     ) -> ApplyResult:
         """
         Run a lender-specific application script in an isolated browser context.
@@ -68,7 +70,12 @@ class BrowserEngine:
             ScriptClass = get_script(script_name)
 
             if ScriptClass == GenericScript or ScriptClass.__name__ == "GenericScript":
-                script = GenericScript(page, business_data, application_url=application_url)
+                script = GenericScript(
+                    page, business_data,
+                    application_url=application_url,
+                    requires_personal_guarantee=requires_personal_guarantee,
+                    hard_pull=hard_pull,
+                )
             else:
                 script = ScriptClass(page, business_data)
                 script.lender_name = lender_name

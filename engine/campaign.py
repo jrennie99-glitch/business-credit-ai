@@ -356,6 +356,8 @@ class CampaignEngine:
                 script_name=script_name,
                 application_url=lender.application_url,
                 business_data=business_data,
+                requires_personal_guarantee=bool(lender.requires_personal_guarantee),
+                hard_pull=bool(lender.hard_pull),
             )
 
             app.screenshot_path = apply_result.screenshot_path

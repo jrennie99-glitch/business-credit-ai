@@ -376,7 +376,7 @@ LENDERS = [
     {
         "name": "Newegg Business",
         "category": "net30",
-        "tier": "starter",
+        "tier": "builder",
         "website": "https://www.newegg.com/business",
         "application_url": "https://www.newegg.com/seller/home.aspx",
         "product_type": "Net-30 Trade Account",
